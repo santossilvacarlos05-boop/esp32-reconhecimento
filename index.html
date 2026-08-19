@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Sistema de Acesso ESP32</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #121212; color: #fff; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 20px; }
+    h1 { color: #00e676; margin-bottom: 10px; text-align: center; }
+    
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+    .tab-btn { background: #222; color: #fff; border: 1px solid #444; padding: 10px 15px; cursor: pointer; border-radius: 5px; font-weight: bold; }
+    .tab-btn.active { background: #00e676; color: #000; border-color: #00e676; }
+    
+    .tab-content { display: none; width: 100%; max-width: 640px; flex-direction: column; align-items: center; }
+    .tab-content.active { display: flex; }
+
+    .video-container { position: relative; margin-top: 10px; width: 100%; display: flex; justify-content: center; }
+    video { border: 3px solid #333; border-radius: 8px; width: 100%; max-width: 640px; background: #000; }
+    .status-box { margin-top: 10px; font-size: 1.1rem; font-weight: bold; padding: 12px; border-radius: 5px; background: #222; text-align: center; width: 100%; box-sizing: border-box; }
+    .autorizado { color: #00e676; border: 2px solid #00e676; background: #003311; }
+    .negado { color: #ff5252; border: 2px solid #ff5252; background: #330000; }
+
+    .card { background: #1e1e1e; padding: 20px; border-radius: 8px; width: 100%; box-sizing: border-box; margin-bottom: 20px; border: 1px solid #333; }
+    .form-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
+    input[type="text"] { padding: 10px; border-radius: 4px; border: 1px solid #444; background: #2a2a2a; color: #fff; font-size: 1rem; }
+    .btn-action { background: #00e676; color: #000; font-weight: bold; padding: 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; width: 100%; margin-top: 10px; }
+    
+    .user-list { list-style: none; padding: 0; margin: 0; width: 100%; }
+    .user-item { display: flex; align-items: center; justify-content: space-between; background: #2a2a2a; padding: 10px 15px; border-radius: 6px; margin-bottom: 8px; }
+    .user-info { display: flex; align-items: center; gap: 12px; }
+    .user-thumb { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid #00e676; }
+    .btn-delete { background: transparent; border: none; color: #ff5252; cursor: pointer; font-size: 1.3rem; }
+  </style>
+</head>
+<body>
+
+  <h1>Controle de Acesso Facial</h1>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('reconhecimentoTab', this)">Escaneamento</button>
+    <button class="tab-btn" onclick="switchTab('cadastroTab', this)">Cadastrar Rosto</button>
+    <button class="tab-btn" onclick="switchTab('gerenciarTab', this)">Gerenciar Acessos</button>
+    <button class="tab-btn" onclick="switchTab('configTab', this)">Configurar IP</button>
+  </div>
+
+  <!-- ABA 1: ESCANEAMENTO AUTOMÁTICO -->
+  <div id="reconhecimentoTab" class="tab-content active">
+    <div id="statusScan" class="status-box">Iniciando Inteligência Artificial...</div>
+    <div class="video-container">
+      <video id="videoScan" autoplay muted></video>
+    </div>
+  </div>
+
+  <!-- ABA 2: CADASTRAR RUSTO PELA CÂMERA -->
+  <div id="cadastroTab" class="tab-content">
+    <div class="card">
+      <div class="form-group">
+        <label>Nome do Usuário:</label>
+        <input type="text" id="userName" placeholder="Ex: Maria Souza">
+      </div>
+      <div class="video-container">
+        <video id="videoCadastro" autoplay muted></video>
+      </div>
+      <button class="btn-action" onclick="capturarECadastrar()">📸 Capturar Foto e Cadastrar</button>
+    </div>
+  </div>
+
+  <!-- ABA 3: GERENCIAR ACESSOS -->
+  <div id="gerenciarTab" class="tab-content">
+    <div class="card">
+      <h3>Usuários Cadastrados</h3>
+      <ul id="userList" class="user-list"></ul>
+    </div>
+  </div>
+
+  <!-- ABA 4: CONFIGURAÇÃO DE IP DO ESP32 -->
+  <div id="configTab" class="tab-content">
+    <div class="card">
+      <h3>Endereço de Rede do ESP32</h3>
+      <div class="form-group">
+        <label>IP Atual do ESP32:</label>
+        <input type="text" id="esp32IpInput" placeholder="Ex: 192.168.77.33">
+      </div>
+      <button class="btn-action" onclick="salvarIP()">Salvar IP</button>
+    </div>
+  </div>
+
+  <script>
+    let esp32Ip = localStorage.getItem('esp32_ip') || "192.168.77.33";
+    let streamCamera = null;
+    let faceMatcher = null;
+    let podeAcionar = true;
+    let intervalScan = null;
+
+    const videoScan = document.getElementById('videoScan');
+    const videoCadastro = document.getElementById('videoCadastro');
+    const statusScan = document.getElementById('statusScan');
+
+    document.getElementById('esp32IpInput').value = esp32Ip;
+
+    Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models'),
+      faceapi.nets.faceLandmark64Net.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models'),
+      faceapi.nets.faceRecognitionNet.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models'),
+      faceapi.nets.ssdMobilenetv1.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models')
+    ]).then(() => {
+      atualizarListaEModelos();
+      abrirCamera(videoScan, true);
+    });
+
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      btn.classList.add('active');
+
+      pararCameras();
+
+      if (tabId === 'reconhecimentoTab') {
+        abrirCamera(videoScan, true);
+      } else if (tabId === 'cadastroTab') {
+        abrirCamera(videoCadastro, false);
+      }
+    }
+
+    function abrirCamera(elementoVideo, ativarScan) {
+      navigator.mediaDevices.getUserMedia({ video: {} })
+        .then(stream => {
+          streamCamera = stream;
+          elementoVideo.srcObject = stream;
+          if (ativarScan) iniciarLoopScan();
+        })
+        .catch(() => alert("Erro ao acessar a câmera do dispositivo!"));
+    }
+
+    function pararCameras() {
+      if (intervalScan) clearInterval(intervalScan);
+      if (streamCamera) {
+        streamCamera.getTracks().forEach(track => track.stop());
+      }
+    }
+
+    function iniciarLoopScan() {
+      intervalScan = setInterval(async () => {
+        if (!faceMatcher) {
+          statusScan.innerText = "Nenhum rosto cadastrado no sistema.";
+          statusScan.className = "status-box";
+          return;
+        }
+
+        const deteccoes = await faceapi.detectAllFaces(videoScan).withFaceLandmarks().withFaceDescriptors();
+
+        if (deteccoes.length === 0) {
+          statusScan.innerText = "Procurando rosto...";
+          statusScan.className = "status-box";
+          return;
+        }
+
+        const resultados = deteccoes.map(d => faceMatcher.findBestMatch(d.descriptor));
+
+        resultados.forEach(res => {
+          if (res.label !== 'unknown' && podeAcionar) {
+            statusScan.innerText = `✅ ACESSO PERMITIDO: ${res.label}`;
+            statusScan.className = "status-box autorizado";
+            acionarRele();
+          } else if (res.label === 'unknown') {
+            statusScan.innerText = "🚨 ALERTA: Rosto NÃO cadastrado! Acesso Negado.";
+            statusScan.className = "status-box negado";
+          }
+        });
+      }, 1000);
+    }
+
+    async function capturarECadastrar() {
+      const nomeInput = document.getElementById('userName');
+      if (!nomeInput.value.trim()) {
+        alert("Por favor, digite o nome do usuário!");
+        return;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = videoCadastro.videoWidth;
+      canvas.height = videoCadastro.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(videoCadastro, 0, 0, canvas.width, canvas.height);
+      const fotoBase64 = canvas.toDataURL('image/jpeg');
+
+      const img = await faceapi.fetchImage(fotoBase64);
+      const deteccao = await faceapi.detectSingleFace(img);
+
+      if (!deteccao) {
+        alert("Nenhum rosto detectado! Posicione-se de frente para a câmera e tente novamente.");
+        return;
+      }
+
+      const usuarios = JSON.parse(localStorage.getItem('esp32_usuarios') || '[]');
+      usuarios.push({ nome: nomeInput.value.trim(), fotoBase64: fotoBase64 });
+      localStorage.setItem('esp32_usuarios', JSON.stringify(usuarios));
+
+      nomeInput.value = '';
+      alert("Rosto cadastrado com sucesso!");
+      atualizarListaEModelos();
+      switchTab('gerenciarTab', document.querySelectorAll('.tab-btn')[2]);
+    }
+
+    async function atualizarListaEModelos() {
+      const usuarios = JSON.parse(localStorage.getItem('esp32_usuarios') || '[]');
+      const userListElement = document.getElementById('userList');
+      userListElement.innerHTML = '';
+
+      if (usuarios.length === 0) {
+        userListElement.innerHTML = '<p style="color:#aaa; text-align:center;">Nenhum usuário cadastrado.</p>';
+        faceMatcher = null;
+        return;
+      }
+
+      const labeledDescriptors = [];
+
+      for (let index = 0; index < usuarios.length; index++) {
+        const u = usuarios[index];
+
+        const li = document.createElement('li');
+        li.className = 'user-item';
+        li.innerHTML = `
+          <div class="user-info">
+            <img src="${u.fotoBase64}" class="user-thumb">
+            <span>${u.nome}</span>
+          </div>
+          <button class="btn-delete" onclick="deletarUsuario(${index})" title="Excluir Permissão">🗑️</button>
+        `;
+        userListElement.appendChild(li);
+
+        const img = await faceapi.fetchImage(u.fotoBase64);
+        const deteccao = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+        if (deteccao) {
+          labeledDescriptors.push(new faceapi.LabeledFaceDescriptors(u.nome, [deteccao.descriptor]));
+        }
+      }
+
+      if (labeledDescriptors.length > 0) {
+        faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45);
+      }
+    }
+
+    function deletarUsuario(index) {
+      if (confirm("Deseja remover este acesso?")) {
+        const usuarios = JSON.parse(localStorage.getItem('esp32_usuarios') || '[]');
+        usuarios.splice(index, 1);
+        localStorage.setItem('esp32_usuarios', JSON.stringify(usuarios));
+        atualizarListaEModelos();
+      }
+    }
+
+    function salvarIP() {
+      const ipInput = document.getElementById('esp32IpInput').value.trim();
+      if (!ipInput) {
+        alert("Digite um IP válido!");
+        return;
+      }
+      esp32Ip = ipInput;
+      localStorage.setItem('esp32_ip', esp32Ip);
+      alert(`IP atualizado para: ${esp32Ip}`);
+    }
+
+    function acionarRele() {
+      podeAcionar = false;
+      const url = `http://${esp32Ip}/abrir`;
+
+      fetch(url)
+        .then(() => console.log("Comando enviado ao ESP32!"))
+        .catch(err => console.error("Erro de conexão com o ESP32:", err));
+
+      setTimeout(() => { podeAcionar = true; }, 5000);
+    }
+  </script>
+</body>
+</html>
