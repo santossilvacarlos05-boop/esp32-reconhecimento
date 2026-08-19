@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Controle de Acesso</title>
-  <!-- Protegendo o script da tradução automática -->
   <script class="notranslate" defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
   <style>
     * {
@@ -155,7 +154,6 @@
 
   <h1>Controle de Acesso</h1>
 
-  <!-- Navegação por Abas sem atributos onclick diretos -->
   <div class="tabs">
     <button id="btnTab1" class="tab-btn active" data-tab="reconhecimentoTab">Escaneamento</button>
     <button id="btnTab2" class="tab-btn" data-tab="cadastroTab">Cadastrar</button>
@@ -201,7 +199,6 @@
     </div>
   </div>
 
-  <!-- Bloco JavaScript blindado contra o tradutor -->
   <script class="notranslate" translate="no">
     let esp32Ip = localStorage.getItem('esp32_ip') || "192.168.77.33";
     let streamCamera = null;
@@ -215,7 +212,6 @@
 
     document.getElementById('esp32IpInput').value = esp32Ip;
 
-    // Configuração dos eventos de clique via JS
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', function() {
         switchTab(this.getAttribute('data-tab'), this);
@@ -257,7 +253,7 @@
           elementoVideo.srcObject = stream;
           if (ativarScan) iniciarLoopScan();
         })
-        .catch(() => alert("Erro ao acessar a câmera. Verifique as permissões do dispositivo!"));
+        .catch(() => alert("Erro ao acessar a câmera. Verifique as permissões!"));
     }
 
     function pararCameras() {
