@@ -2,84 +2,209 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Sistema de Acesso ESP32</title>
+  <!-- Configuração para ajustar a tela perfeitamente no celular -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Controle de Acesso</title>
   <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; background: #121212; color: #fff; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 20px; }
-    h1 { color: #00e676; margin-bottom: 10px; text-align: center; }
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #0f0f12; 
+      color: #f1f1f1; 
+      margin: 0; 
+      padding: 16px; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      min-height: 100vh;
+    }
     
-    .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
-    .tab-btn { background: #222; color: #fff; border: 1px solid #444; padding: 10px 15px; cursor: pointer; border-radius: 5px; font-weight: bold; }
-    .tab-btn.active { background: #00e676; color: #000; border-color: #00e676; }
+    h1 { 
+      color: #00e676; 
+      font-size: 1.4rem; 
+      margin: 10px 0 16px 0; 
+      text-align: center; 
+      font-weight: 700;
+    }
     
-    .tab-content { display: none; width: 100%; max-width: 640px; flex-direction: column; align-items: center; }
+    /* Abas no estilo App Móvel */
+    .tabs { 
+      display: grid; 
+      grid-template-columns: 1fr 1fr; 
+      gap: 8px; 
+      width: 100%; 
+      max-width: 480px; 
+      margin-bottom: 16px; 
+    }
+    .tab-btn { 
+      background: #1a1a20; 
+      color: #aaa; 
+      border: 1px solid #2a2a32; 
+      padding: 12px 8px; 
+      cursor: pointer; 
+      border-radius: 10px; 
+      font-weight: 600; 
+      font-size: 0.85rem;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .tab-btn.active { 
+      background: #00e676; 
+      color: #000; 
+      border-color: #00e676; 
+      font-weight: 700;
+    }
+    
+    .tab-content { 
+      display: none; 
+      width: 100%; 
+      max-width: 480px; 
+      flex-direction: column; 
+      align-items: center; 
+    }
     .tab-content.active { display: flex; }
 
-    .video-container { position: relative; margin-top: 10px; width: 100%; display: flex; justify-content: center; }
-    video { border: 3px solid #333; border-radius: 8px; width: 100%; max-width: 640px; background: #000; }
-    .status-box { margin-top: 10px; font-size: 1.1rem; font-weight: bold; padding: 12px; border-radius: 5px; background: #222; text-align: center; width: 100%; box-sizing: border-box; }
-    .autorizado { color: #00e676; border: 2px solid #00e676; background: #003311; }
-    .negado { color: #ff5252; border: 2px solid #ff5252; background: #330000; }
+    /* Exibição da Câmera responsiva */
+    .video-container { 
+      position: relative; 
+      width: 100%; 
+      border-radius: 16px;
+      overflow: hidden;
+      background: #000;
+      border: 2px solid #2a2a32;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    video { 
+      width: 100%; 
+      height: auto; 
+      display: block; 
+      object-fit: cover;
+    }
 
-    .card { background: #1e1e1e; padding: 20px; border-radius: 8px; width: 100%; box-sizing: border-box; margin-bottom: 20px; border: 1px solid #333; }
-    .form-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
-    input[type="text"] { padding: 10px; border-radius: 4px; border: 1px solid #444; background: #2a2a2a; color: #fff; font-size: 1rem; }
-    .btn-action { background: #00e676; color: #000; font-weight: bold; padding: 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; width: 100%; margin-top: 10px; }
+    /* Caixa de Status do Alerta */
+    .status-box { 
+      margin-bottom: 12px; 
+      font-size: 0.95rem; 
+      font-weight: 600; 
+      padding: 14px; 
+      border-radius: 12px; 
+      background: #1a1a20; 
+      text-align: center; 
+      width: 100%; 
+      border: 1px solid #2a2a32;
+    }
+    .autorizado { color: #00e676; border: 2px solid #00e676; background: #002910; }
+    .negado { color: #ff5252; border: 2px solid #ff5252; background: #290000; }
+
+    /* Cards e Formulários */
+    .card { 
+      background: #1a1a20; 
+      padding: 16px; 
+      border-radius: 16px; 
+      width: 100%; 
+      border: 1px solid #2a2a32;
+      margin-bottom: 16px;
+    }
+    .card h3 {
+      margin-top: 0;
+      font-size: 1.1rem;
+      color: #00e676;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+    label { font-size: 0.9rem; color: #ccc; }
+    input[type="text"] { 
+      padding: 14px; 
+      border-radius: 10px; 
+      border: 1px solid #3a3a45; 
+      background: #0f0f12; 
+      color: #fff; 
+      font-size: 1rem; 
+      width: 100%;
+    }
     
+    /* Botões Grandes para Toque */
+    .btn-action { 
+      background: #00e676; 
+      color: #000; 
+      font-weight: 700; 
+      padding: 16px; 
+      border: none; 
+      border-radius: 12px; 
+      cursor: pointer; 
+      font-size: 1rem; 
+      width: 100%; 
+      margin-top: 8px;
+    }
+    
+    /* Lista de Usuários */
     .user-list { list-style: none; padding: 0; margin: 0; width: 100%; }
-    .user-item { display: flex; align-items: center; justify-content: space-between; background: #2a2a2a; padding: 10px 15px; border-radius: 6px; margin-bottom: 8px; }
+    .user-item { 
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between; 
+      background: #0f0f12; 
+      padding: 12px; 
+      border-radius: 12px; 
+      margin-bottom: 8px; 
+      border: 1px solid #2a2a32;
+    }
     .user-info { display: flex; align-items: center; gap: 12px; }
-    .user-thumb { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid #00e676; }
-    .btn-delete { background: transparent; border: none; color: #ff5252; cursor: pointer; font-size: 1.3rem; }
+    .user-thumb { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid #00e676; }
+    .btn-delete { background: transparent; border: none; color: #ff5252; cursor: pointer; font-size: 1.4rem; padding: 8px; }
   </style>
 </head>
 <body>
 
-  <h1>Controle de Acesso Facial</h1>
+  <h1>Controle de Acesso</h1>
 
+  <!-- ABAS (DISPOSTAS EM GRADE 2x2 NO CELULAR) -->
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('reconhecimentoTab', this)">Escaneamento</button>
-    <button class="tab-btn" onclick="switchTab('cadastroTab', this)">Cadastrar Rosto</button>
-    <button class="tab-btn" onclick="switchTab('gerenciarTab', this)">Gerenciar Acessos</button>
-    <button class="tab-btn" onclick="switchTab('configTab', this)">Configurar IP</button>
+    <button class="tab-btn" onclick="switchTab('cadastroTab', this)">Cadastrar</button>
+    <button class="tab-btn" onclick="switchTab('gerenciarTab', this)">Gerenciar</button>
+    <button class="tab-btn" onclick="switchTab('configTab', this)">Config IP</button>
   </div>
 
   <!-- ABA 1: ESCANEAMENTO AUTOMÁTICO -->
   <div id="reconhecimentoTab" class="tab-content active">
-    <div id="statusScan" class="status-box">Iniciando Inteligência Artificial...</div>
+    <div id="statusScan" class="status-box">Iniciando IA...</div>
     <div class="video-container">
-      <video id="videoScan" autoplay muted></video>
+      <video id="videoScan" autoplay playsinline muted></video>
     </div>
   </div>
 
-  <!-- ABA 2: CADASTRAR RUSTO PELA CÂMERA -->
+  <!-- ABA 2: CADASTRAR RUSTO -->
   <div id="cadastroTab" class="tab-content">
     <div class="card">
       <div class="form-group">
         <label>Nome do Usuário:</label>
         <input type="text" id="userName" placeholder="Ex: Maria Souza">
       </div>
-      <div class="video-container">
-        <video id="videoCadastro" autoplay muted></video>
+      <div class="video-container" style="margin-bottom: 12px;">
+        <video id="videoCadastro" autoplay playsinline muted></video>
       </div>
-      <button class="btn-action" onclick="capturarECadastrar()">📸 Capturar Foto e Cadastrar</button>
+      <button class="btn-action" onclick="capturarECadastrar()">📸 Capturar e Cadastrar</button>
     </div>
   </div>
 
   <!-- ABA 3: GERENCIAR ACESSOS -->
   <div id="gerenciarTab" class="tab-content">
     <div class="card">
-      <h3>Usuários Cadastrados</h3>
+      <h3>Usuários Permitidos</h3>
       <ul id="userList" class="user-list"></ul>
     </div>
   </div>
 
-  <!-- ABA 4: CONFIGURAÇÃO DE IP DO ESP32 -->
+  <!-- ABA 4: CONFIGURAÇÃO DE IP -->
   <div id="configTab" class="tab-content">
     <div class="card">
-      <h3>Endereço de Rede do ESP32</h3>
+      <h3>Configuração da Rede</h3>
       <div class="form-group">
-        <label>IP Atual do ESP32:</label>
+        <label>IP do ESP32:</label>
         <input type="text" id="esp32IpInput" placeholder="Ex: 192.168.77.33">
       </div>
       <button class="btn-action" onclick="salvarIP()">Salvar IP</button>
@@ -125,13 +250,13 @@
     }
 
     function abrirCamera(elementoVideo, ativarScan) {
-      navigator.mediaDevices.getUserMedia({ video: {} })
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
         .then(stream => {
           streamCamera = stream;
           elementoVideo.srcObject = stream;
           if (ativarScan) iniciarLoopScan();
         })
-        .catch(() => alert("Erro ao acessar a câmera do dispositivo!"));
+        .catch(() => alert("Erro ao acessar a câmera. Verifique as permissões!"));
     }
 
     function pararCameras() {
@@ -144,7 +269,7 @@
     function iniciarLoopScan() {
       intervalScan = setInterval(async () => {
         if (!faceMatcher) {
-          statusScan.innerText = "Nenhum rosto cadastrado no sistema.";
+          statusScan.innerText = "Nenhum rosto cadastrado.";
           statusScan.className = "status-box";
           return;
         }
@@ -165,7 +290,7 @@
             statusScan.className = "status-box autorizado";
             acionarRele();
           } else if (res.label === 'unknown') {
-            statusScan.innerText = "🚨 ALERTA: Rosto NÃO cadastrado! Acesso Negado.";
+            statusScan.innerText = "🚨 ALERTA: Rosto NÃO cadastrado!";
             statusScan.className = "status-box negado";
           }
         });
@@ -175,7 +300,7 @@
     async function capturarECadastrar() {
       const nomeInput = document.getElementById('userName');
       if (!nomeInput.value.trim()) {
-        alert("Por favor, digite o nome do usuário!");
+        alert("Digite o nome do usuário!");
         return;
       }
 
@@ -190,7 +315,7 @@
       const deteccao = await faceapi.detectSingleFace(img);
 
       if (!deteccao) {
-        alert("Nenhum rosto detectado! Posicione-se de frente para a câmera e tente novamente.");
+        alert("Nenhum rosto detectado! Fique de frente para a câmera.");
         return;
       }
 
