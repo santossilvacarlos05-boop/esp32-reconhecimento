@@ -31,12 +31,14 @@
     .video-container { 
       position: relative; width: 100%; border-radius: 16px; overflow: hidden;
       background: #000; border: 2px solid #2a2a32; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      margin-bottom: 12px;
     }
     video { width: 100%; height: auto; display: block; object-fit: cover; }
 
     .status-box { 
       margin-bottom: 12px; font-size: 0.95rem; font-weight: 600; padding: 14px; 
       border-radius: 12px; background: #1a1a20; text-align: center; width: 100%; border: 1px solid #2a2a32;
+      min-height: 50px; display: flex; align-items: center; justify-content: center;
     }
     .autorizado { color: #00e676; border: 2px solid #00e676; background: #002910; }
     .negado { color: #ff5252; border: 2px solid #ff5252; background: #290000; }
@@ -82,6 +84,8 @@
     <div class="video-container">
       <video id="videoScan" autoplay playsinline muted></video>
     </div>
+    <!-- Novo botão para verificação manual -->
+    <button id="btnVerificar" class="btn-action" onclick="realizarVerificacaoManual()">🔍 Verificar Identidade</button>
   </div>
 
   <div id="cadastroTab" class="tab-content">
@@ -90,7 +94,7 @@
         <label>Nome do Usuário:</label>
         <input type="text" id="userName" placeholder="Ex: Maria Souza">
       </div>
-      <div class="video-container" style="margin-bottom: 12px;">
+      <div class="video-container">
         <video id="videoCadastro" autoplay playsinline muted></video>
       </div>
       <button id="btnCadastrar" class="btn-action" onclick="capturarECadastrar()">📸 Capturar Foto e Cadastrar</button>
@@ -128,6 +132,9 @@
 
     // Inicialização da IA do Google
     async function initIA() {
+      const statusScan = document.getElementById('statusScan');
+      statusScan.innerText = "Carregando Inteligência Artificial...";
+      
       faceMesh = new FaceMesh({
         locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
       });
@@ -149,6 +156,10 @@
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.getElementById(tabId).classList.add('active');
       btn.classList.add('active');
+
+      const statusScan = document.getElementById('statusScan');
+      statusScan.innerText = "Aguardando verificação...";
+      statusScan.className = "status-box";
 
       if (tabId === 'reconhecimentoTab') {
         iniciarCamera(document.getElementById('videoScan'));
@@ -175,6 +186,10 @@
         height: 480
       });
       cameraUtil.start();
+      
+      if(abaAtual === 'reconhecimentoTab'){
+        document.getElementById('statusScan').innerText = "Câmera pronta. Posicione o rosto e clique no botão.";
+      }
     }
 
     function pararCamera() {
@@ -185,66 +200,73 @@
     }
 
     function onResults(results) {
-      const statusScan = document.getElementById('statusScan');
-
       if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
         ultimoLandmarks = null;
-        if (abaAtual === 'reconhecimentoTab') {
-          statusScan.innerText = "Procurando rosto...";
-          statusScan.className = "status-box";
-        }
         return;
       }
-
       ultimoLandmarks = results.multiFaceLandmarks[0];
-
-      if (abaAtual === 'reconhecimentoTab') {
-        verificarReconhecimento(ultimoLandmarks);
-      }
     }
 
-    function calcularDistancia(landmarksA, landmarksB) {
-      let soma = 0;
-      // Compara os pontos chave do rosto
-      const pontosChave = [1, 33, 263, 61, 291, 199];
-      for (let idx of pontosChave) {
-        const dx = landmarksA[idx].x - landmarksB[idx].x;
-        const dy = landmarksA[idx].y - landmarksB[idx].y;
-        soma += Math.sqrt(dx * dx + dy * dy);
-      }
-      return soma / pontosChave.length;
-    }
-
-    function verificarReconhecimento(landmarksAtuais) {
+    function realizarVerificacaoManual() {
       const statusScan = document.getElementById('statusScan');
+      const btnVerificar = document.getElementById('btnVerificar');
       const usuarios = JSON.parse(localStorage.getItem('esp32_usuarios') || '[]');
 
       if (usuarios.length === 0) {
-        statusScan.innerText = "Nenhum rosto cadastrado.";
-        statusScan.className = "status-box";
+        statusScan.innerText = "⚠️ Nenhum rosto cadastrado no sistema.";
+        statusScan.className = "status-box negado";
         return;
       }
+
+      if (!ultimoLandmarks) {
+        statusScan.innerText = "❓ Rosto não detectado. Aproxime-se da câmera.";
+        statusScan.className = "status-box negado";
+        return;
+      }
+
+      btnVerificar.disabled = true;
+      btnVerificar.innerText = "⏳ Verificando...";
 
       let melhorMatch = null;
       let menorDistancia = 999;
 
+      // Pontos chave para comparação rápida e precisa
+      const pontosChave = [1, 33, 263, 61, 291, 199, 10, 152];
+
       for (let u of usuarios) {
         if (!u.landmarks) continue;
-        const dist = calcularDistancia(landmarksAtuais, u.landmarks);
+        
+        let soma = 0;
+        for (let idx of pontosChave) {
+          const dx = ultimoLandmarks[idx].x - u.landmarks[idx].x;
+          const dy = ultimoLandmarks[idx].y - u.landmarks[idx].y;
+          soma += Math.sqrt(dx * dx + dy * dy);
+        }
+        const dist = soma / pontosChave.length;
+
         if (dist < menorDistancia) {
           menorDistancia = dist;
           melhorMatch = u.nome;
         }
       }
 
-      if (menorDistancia < 0.08 && melhorMatch) {
+      // Limiar de aceitação (menor é mais rigoroso)
+      if (menorDistancia < 0.07 && melhorMatch) {
         statusScan.innerText = `✅ ACESSO PERMITIDO: ${melhorMatch}`;
         statusScan.className = "status-box autorizado";
-        if (podeAcionar) acionarRele();
+        acionarRele();
       } else {
         statusScan.innerText = "🚨 ALERTA: Rosto NÃO cadastrado!";
         statusScan.className = "status-box negado";
       }
+
+      // Reseta o botão e o status após 3 segundos
+      setTimeout(() => {
+        btnVerificar.disabled = false;
+        btnVerificar.innerText = "🔍 Verificar Identidade";
+        statusScan.innerText = "Câmera pronta. Posicione o rosto e clique no botão.";
+        statusScan.className = "status-box";
+      }, 3000);
     }
 
     function capturarECadastrar() {
@@ -325,9 +347,7 @@
     }
 
     function acionarRele() {
-      podeAcionar = false;
       fetch(`http://${esp32Ip}/abrir`).catch(() => {});
-      setTimeout(() => { podeAcionar = true; }, 5000);
     }
 
     window.onload = initIA;
