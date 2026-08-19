@@ -2,10 +2,10 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <!-- Configuração para ajustar a tela perfeitamente no celular -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Controle de Acesso</title>
-  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <!-- Protegendo o script da tradução automática -->
+  <script class="notranslate" defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
   <style>
     * {
       box-sizing: border-box;
@@ -31,7 +31,6 @@
       font-weight: 700;
     }
     
-    /* Abas no estilo App Móvel */
     .tabs { 
       display: grid; 
       grid-template-columns: 1fr 1fr; 
@@ -68,7 +67,6 @@
     }
     .tab-content.active { display: flex; }
 
-    /* Exibição da Câmera responsiva */
     .video-container { 
       position: relative; 
       width: 100%; 
@@ -85,7 +83,6 @@
       object-fit: cover;
     }
 
-    /* Caixa de Status do Alerta */
     .status-box { 
       margin-bottom: 12px; 
       font-size: 0.95rem; 
@@ -100,7 +97,6 @@
     .autorizado { color: #00e676; border: 2px solid #00e676; background: #002910; }
     .negado { color: #ff5252; border: 2px solid #ff5252; background: #290000; }
 
-    /* Cards e Formulários */
     .card { 
       background: #1a1a20; 
       padding: 16px; 
@@ -126,7 +122,6 @@
       width: 100%;
     }
     
-    /* Botões Grandes para Toque */
     .btn-action { 
       background: #00e676; 
       color: #000; 
@@ -140,7 +135,6 @@
       margin-top: 8px;
     }
     
-    /* Lista de Usuários */
     .user-list { list-style: none; padding: 0; margin: 0; width: 100%; }
     .user-item { 
       display: flex; 
@@ -161,15 +155,14 @@
 
   <h1>Controle de Acesso</h1>
 
-  <!-- ABAS (DISPOSTAS EM GRADE 2x2 NO CELULAR) -->
+  <!-- Navegação por Abas sem atributos onclick diretos -->
   <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('reconhecimentoTab', this)">Escaneamento</button>
-    <button class="tab-btn" onclick="switchTab('cadastroTab', this)">Cadastrar</button>
-    <button class="tab-btn" onclick="switchTab('gerenciarTab', this)">Gerenciar</button>
-    <button class="tab-btn" onclick="switchTab('configTab', this)">Config IP</button>
+    <button id="btnTab1" class="tab-btn active" data-tab="reconhecimentoTab">Escaneamento</button>
+    <button id="btnTab2" class="tab-btn" data-tab="cadastroTab">Cadastrar</button>
+    <button id="btnTab3" class="tab-btn" data-tab="gerenciarTab">Gerenciar</button>
+    <button id="btnTab4" class="tab-btn" data-tab="configTab">Config IP</button>
   </div>
 
-  <!-- ABA 1: ESCANEAMENTO AUTOMÁTICO -->
   <div id="reconhecimentoTab" class="tab-content active">
     <div id="statusScan" class="status-box">Iniciando IA...</div>
     <div class="video-container">
@@ -177,7 +170,6 @@
     </div>
   </div>
 
-  <!-- ABA 2: CADASTRAR RUSTO -->
   <div id="cadastroTab" class="tab-content">
     <div class="card">
       <div class="form-group">
@@ -187,11 +179,10 @@
       <div class="video-container" style="margin-bottom: 12px;">
         <video id="videoCadastro" autoplay playsinline muted></video>
       </div>
-      <button class="btn-action" onclick="capturarECadastrar()">📸 Capturar e Cadastrar</button>
+      <button id="btnCadastrar" class="btn-action">📸 Capturar Foto e Cadastrar</button>
     </div>
   </div>
 
-  <!-- ABA 3: GERENCIAR ACESSOS -->
   <div id="gerenciarTab" class="tab-content">
     <div class="card">
       <h3>Usuários Permitidos</h3>
@@ -199,7 +190,6 @@
     </div>
   </div>
 
-  <!-- ABA 4: CONFIGURAÇÃO DE IP -->
   <div id="configTab" class="tab-content">
     <div class="card">
       <h3>Configuração da Rede</h3>
@@ -207,11 +197,12 @@
         <label>IP do ESP32:</label>
         <input type="text" id="esp32IpInput" placeholder="Ex: 192.168.77.33">
       </div>
-      <button class="btn-action" onclick="salvarIP()">Salvar IP</button>
+      <button id="btnSalvarIp" class="btn-action">Salvar IP</button>
     </div>
   </div>
 
-  <script>
+  <!-- Bloco JavaScript blindado contra o tradutor -->
+  <script class="notranslate" translate="no">
     let esp32Ip = localStorage.getItem('esp32_ip') || "192.168.77.33";
     let streamCamera = null;
     let faceMatcher = null;
@@ -223,6 +214,16 @@
     const statusScan = document.getElementById('statusScan');
 
     document.getElementById('esp32IpInput').value = esp32Ip;
+
+    // Configuração dos eventos de clique via JS
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        switchTab(this.getAttribute('data-tab'), this);
+      });
+    });
+
+    document.getElementById('btnCadastrar').addEventListener('click', capturarECadastrar);
+    document.getElementById('btnSalvarIp').addEventListener('click', salvarIP);
 
     Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models'),
@@ -256,7 +257,7 @@
           elementoVideo.srcObject = stream;
           if (ativarScan) iniciarLoopScan();
         })
-        .catch(() => alert("Erro ao acessar a câmera. Verifique as permissões!"));
+        .catch(() => alert("Erro ao acessar a câmera. Verifique as permissões do dispositivo!"));
     }
 
     function pararCameras() {
@@ -300,7 +301,7 @@
     async function capturarECadastrar() {
       const nomeInput = document.getElementById('userName');
       if (!nomeInput.value.trim()) {
-        alert("Digite o nome do usuário!");
+        alert("Por favor, digite o nome do usuário antes de cadastrar!");
         return;
       }
 
@@ -315,7 +316,7 @@
       const deteccao = await faceapi.detectSingleFace(img);
 
       if (!deteccao) {
-        alert("Nenhum rosto detectado! Fique de frente para a câmera.");
+        alert("Nenhum rosto detectado! Posicione-se de frente para a câmera e tente novamente.");
         return;
       }
 
@@ -326,7 +327,7 @@
       nomeInput.value = '';
       alert("Rosto cadastrado com sucesso!");
       atualizarListaEModelos();
-      switchTab('gerenciarTab', document.querySelectorAll('.tab-btn')[2]);
+      switchTab('gerenciarTab', document.getElementById('btnTab3'));
     }
 
     async function atualizarListaEModelos() {
@@ -347,13 +348,28 @@
 
         const li = document.createElement('li');
         li.className = 'user-item';
-        li.innerHTML = `
-          <div class="user-info">
-            <img src="${u.fotoBase64}" class="user-thumb">
-            <span>${u.nome}</span>
-          </div>
-          <button class="btn-delete" onclick="deletarUsuario(${index})" title="Excluir Permissão">🗑️</button>
-        `;
+        
+        const userInfo = document.createElement('div');
+        userInfo.className = 'user-info';
+        
+        const imgThumb = document.createElement('img');
+        imgThumb.src = u.fotoBase64;
+        imgThumb.className = 'user-thumb';
+        
+        const userName = document.createElement('span');
+        userName.innerText = u.nome;
+
+        userInfo.appendChild(imgThumb);
+        userInfo.appendChild(userName);
+
+        const btnDelete = document.createElement('button');
+        btnDelete.className = 'btn-delete';
+        btnDelete.innerText = '🗑️';
+        btnDelete.title = 'Excluir Permissão';
+        btnDelete.onclick = function() { deletarUsuario(index); };
+
+        li.appendChild(userInfo);
+        li.appendChild(btnDelete);
         userListElement.appendChild(li);
 
         const img = await faceapi.fetchImage(u.fotoBase64);
@@ -369,7 +385,7 @@
     }
 
     function deletarUsuario(index) {
-      if (confirm("Deseja remover este acesso?")) {
+      if (confirm("Tem certeza que deseja remover esta permissão de acesso?")) {
         const usuarios = JSON.parse(localStorage.getItem('esp32_usuarios') || '[]');
         usuarios.splice(index, 1);
         localStorage.setItem('esp32_usuarios', JSON.stringify(usuarios));
@@ -380,12 +396,12 @@
     function salvarIP() {
       const ipInput = document.getElementById('esp32IpInput').value.trim();
       if (!ipInput) {
-        alert("Digite um IP válido!");
+        alert("Por favor, digite um endereço IP válido!");
         return;
       }
       esp32Ip = ipInput;
       localStorage.setItem('esp32_ip', esp32Ip);
-      alert(`IP atualizado para: ${esp32Ip}`);
+      alert(`Endereço IP atualizado com sucesso para: ${esp32Ip}`);
     }
 
     function acionarRele() {
@@ -393,7 +409,7 @@
       const url = `http://${esp32Ip}/abrir`;
 
       fetch(url)
-        .then(() => console.log("Comando enviado ao ESP32!"))
+        .then(() => console.log("Comando enviado com sucesso ao ESP32!"))
         .catch(err => console.error("Erro de conexão com o ESP32:", err));
 
       setTimeout(() => { podeAcionar = true; }, 5000);
