@@ -347,7 +347,13 @@
     }
 
     function acionarRele() {
+      // Envia o comando para abrir o relé
       fetch(`http://${esp32Ip}/abrir`).catch(() => {});
+      
+      // Aguarda 1,5 segundos (1500 milissegundos) e envia o comando para fechar
+      setTimeout(() => {
+        fetch(`http://${esp32Ip}/fechar`).catch(() => {});
+      }, 1500);
     }
 
     window.onload = initIA;
