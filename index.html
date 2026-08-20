@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Controle de Acesso</title>
   
-  <!-- MediaPipe Face Mesh e Camera Utils (Mais leve e rápido para celulares) -->
+  <!-- MediaPipe Face Mesh e Camera Utils -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
 
@@ -84,7 +84,6 @@
     <div class="video-container">
       <video id="videoScan" autoplay playsinline muted></video>
     </div>
-    <!-- Novo botão para verificação manual -->
     <button id="btnVerificar" class="btn-action" onclick="realizarVerificacaoManual()">🔍 Verificar Identidade</button>
   </div>
 
@@ -113,24 +112,22 @@
       <h3>Configuração da Rede</h3>
       <div class="form-group">
         <label>IP do ESP32:</label>
-        <input type="text" id="esp32IpInput" placeholder="Ex: 192.168.77.33">
+        <input type="text" id="esp32IpInput" placeholder="Ex: 192.168.1.50">
       </div>
       <button class="btn-action" onclick="salvarIP()">Salvar IP</button>
     </div>
   </div>
 
   <script>
-    let esp32Ip = localStorage.getItem('esp32_ip') || "192.168.77.33";
+    let esp32Ip = localStorage.getItem('esp32_ip') || "192.168.1.50";
     let videoStream = null;
     let faceMesh = null;
     let cameraUtil = null;
     let ultimoLandmarks = null;
-    let podeAcionar = true;
     let abaAtual = 'reconhecimentoTab';
 
     document.getElementById('esp32IpInput').value = esp32Ip;
 
-    // Inicialização da IA do Google
     async function initIA() {
       const statusScan = document.getElementById('statusScan');
       statusScan.innerText = "Carregando Inteligência Artificial...";
@@ -229,8 +226,6 @@
 
       let melhorMatch = null;
       let menorDistancia = 999;
-
-      // Pontos chave para comparação rápida e precisa
       const pontosChave = [1, 33, 263, 61, 291, 199, 10, 152];
 
       for (let u of usuarios) {
@@ -250,7 +245,6 @@
         }
       }
 
-      // Limiar de aceitação (menor é mais rigoroso)
       if (menorDistancia < 0.07 && melhorMatch) {
         statusScan.innerText = `✅ ACESSO PERMITIDO: ${melhorMatch}`;
         statusScan.className = "status-box autorizado";
@@ -260,7 +254,6 @@
         statusScan.className = "status-box negado";
       }
 
-      // Reseta o botão e o status após 3 segundos
       setTimeout(() => {
         btnVerificar.disabled = false;
         btnVerificar.innerText = "🔍 Verificar Identidade";
@@ -299,7 +292,6 @@
       });
 
       localStorage.setItem('esp32_usuarios', JSON.stringify(usuarios));
-
       nomeInput.value = '';
       alert(`Rosto de "${nome}" cadastrado com sucesso!`);
       switchTab('gerenciarTab', document.getElementById('btnTab3'));
@@ -347,13 +339,8 @@
     }
 
     function acionarRele() {
-      // Envia o comando para abrir o relé
-      fetch(`http://${esp32Ip}/abrir`).catch(() => {});
-      
-      // Aguarda 1,5 segundos (1500 milissegundos) e envia o comando para fechar
-      setTimeout(() => {
-        fetch(`http://${esp32Ip}/fechar`).catch(() => {});
-      }, 1500);
+      // Dispara a rota /abrir do ESP32 (o próprio ESP32 desliga após 1 segundo)
+      fetch(`http://${esp32Ip}/abrir`, { mode: 'no-cors' }).catch(() => {});
     }
 
     window.onload = initIA;
