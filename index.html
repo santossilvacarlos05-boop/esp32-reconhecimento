@@ -1,327 +1,97 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Controle & Acesso por Reconhecimento Facial</title>
-    
-    <!-- Biblioteca Face-API.js -->
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
-        body { background-color: #0f172a; color: #f8fafc; padding: 20px; display: flex; justify-content: center; }
-        .container { max-width: 600px; width: 100%; background-color: #1e293b; border-radius: 16px; border: 1px solid #334155; overflow: hidden; }
-        
-        /* Navegação por Abas */
-        .tabs { display: flex; background-color: #0f172a; border-bottom: 1px solid #334155; flex-wrap: wrap; }
-        .tab-btn { flex: 1; min-width: 100px; padding: 12px; background: none; border: none; color: #94a3b8; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .tab-btn.active { color: #38bdf8; border-bottom: 3px solid #38bdf8; background-color: #1e293b; }
-        
-        /* Conteúdo das Abas */
-        .tab-content { display: none; padding: 25px; }
-        .tab-content.active { display: block; }
-
-        h2 { font-size: 20px; color: #38bdf8; margin-bottom: 15px; }
-        label { display: block; margin-top: 10px; font-size: 14px; color: #94a3b8; }
-        input { width: 100%; padding: 10px; margin-top: 5px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 8px; }
-
-        /* Container da Câmera */
-        .camera-box {
-            width: 100%;
-            height: 280px;
-            background: #0f172a;
-            margin-top: 15px;
-            border-radius: 8px;
-            border: 1px solid #334155;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            position: relative;
-        }
-
-        video { width: 100%; height: 100%; object-fit: cover; }
-
-        /* Mensagem de Status */
-        .status-msg {
-            margin-top: 15px;
-            padding: 10px;
-            border-radius: 8px;
-            background-color: #334155;
-            color: #38bdf8;
-            text-align: center;
-            font-size: 14px;
-            font-weight: bold;
-        }
-
-        /* Card do Perfil na aba Gerenciar */
-        .profile-card {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background-color: #0f172a;
-            padding: 12px 16px;
-            border-radius: 10px;
-            border: 1px solid #334155;
-            margin-top: 15px;
-        }
-
-        .profile-info { display: flex; align-items: center; gap: 12px; }
-        .profile-img { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #38bdf8; }
-
-        .btn-delete { background-color: #ef4444; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 16px; }
-        .btn-delete:hover { background-color: #dc2626; }
-
-        .btn { background-color: #0284c7; color: white; border: none; padding: 12px 20px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 15px; width: 100%; }
-        .btn-green { background: linear-gradient(135deg, #22c55e, #16a34a); }
-        .btn-blue { background: linear-gradient(135deg, #0284c7, #0369a1); }
-    </style>
+  <meta charset="UTF-8">
+  <title>Reconhecimento Facial Otimizado</title>
+  <!-- Carrega a biblioteca face-api.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #121212; color: white; }
+    .container { position: relative; display: inline-block; margin-top: 20px; }
+    video, canvas { border-radius: 8px; width: 640px; height: 480px; }
+    canvas { position: absolute; top: 0; left: 0; }
+    #status { font-size: 18px; margin-top: 10px; color: #00ffcc; }
+  </style>
 </head>
 <body>
 
-<div class="container">
-    <!-- Menu das Abas -->
-    <div class="tabs">
-        <button class="tab-btn active" onclick="openTab(event, 'escanear')">Escaneamento</button>
-        <button class="tab-btn" onclick="openTab(event, 'cadastrar')">Cadastrar</button>
-        <button class="tab-btn" onclick="openTab(event, 'acessos')">Gerenciar</button>
-        <button class="tab-btn" onclick="openTab(event, 'config')">Config IP</button>
-    </div>
+  <h2>Leitura Facial Rápida (Sem Travamentos)</h2>
+  <div id="status">Carregando modelos leves...</div>
 
-    <!-- Aba 1 (Padrão): Escaneamento Manual por Botão -->
-    <div id="escanear" class="tab-content active">
-        <h2>Escaneamento Facial</h2>
-        <p style="color: #94a3b8;">Posicione seu rosto em frente à câmera e clique no botão abaixo para validar o acesso.</p>
+  <div class="container">
+    <!-- Câmera em resolução reduzida (640x480) para economizar CPU -->
+    <video id="webcam" autoplay muted width="640" height="480"></video>
+    <canvas id="overlay"></canvas>
+  </div>
+
+  <script>
+    const video = document.getElementById('webcam');
+    const statusText = document.getElementById('status');
+    const overlay = document.getElementById('overlay');
+
+    // 1. Inicia a câmera do usuário
+    async function setupCamera() {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480, frameRate: { ideal: 30 } },
+        audio: false
+      });
+      video.srcObject = stream;
+      return new Promise((resolve) => {
+        video.onloadedmetadata = () => resolve(video);
+      });
+    }
+
+    // 2. Carrega apenas os modelos ultra-leves (Tiny Models)
+    async function loadModels() {
+      // Baixe os arquivos da pasta 'models' do repositório do face-api.js e coloque em '/models'
+      const MODEL_URL = './models'; 
+      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+      await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
+      await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+    }
+
+    // 3. Loop de detecção otimizado com Throttle
+    async function startDetection() {
+      const displaySize = { width: video.width, height: video.height };
+      faceapi.matchDimensions(overlay, displaySize);
+
+      statusText.innerText = "Analisando rosto...";
+
+      // Configuração para usar o detector leve com resolução interna baixa
+      const detectorOptions = new faceapi.TinyFaceDetectorOptions({
+        inputSize: 224,      // Tamanho reduzido da imagem processada (128, 160, 224 ou 320)
+        scoreThreshold: 0.5  // Confiança mínima da detecção (50%)
+      });
+
+      // Loop executado a cada 200ms em vez de rodar a cada frame (evita congelar a tela)
+      setInterval(async () => {
+        const detections = await faceapi.detectAllFaces(video, detectorOptions)
+                                         .withFaceLandmarks(true);
+
+        const resizedDetections = faceapi.resizeResults(detections, displaySize);
         
-        <div class="camera-box">
-            <video id="videoEscanear" autoplay playsinline muted></video>
-        </div>
+        // Limpa a tela anterior e desenha as novas marcações
+        const ctx = overlay.getContext('2d');
+        ctx.clearRect(0, 0, overlay.width, overlay.height);
+        faceapi.draw.drawDetections(overlay, resizedDetections);
+        faceapi.draw.drawFaceLandmarks(overlay, resizedDetections);
 
-        <button class="btn btn-blue" onclick="validarRostoManual()">Escanear e Validar Rosto</button>
-
-        <div id="statusEscanear" class="status-msg">Carregando IA de Reconhecimento...</div>
-    </div>
-
-    <!-- Aba 2: Cadastrar Rostos Permitidos -->
-    <div id="cadastrar" class="tab-content">
-        <h2>Cadastrar Rosto Permitido</h2>
-        <label>Nome do Usuário:</label>
-        <input type="text" id="nomeUsuario" placeholder="Digite o nome completo">
-        
-        <div class="camera-box">
-            <video id="videoCadastrar" autoplay playsinline muted></video>
-        </div>
-        
-        <button class="btn btn-green" onclick="cadastrarRosto()">Capturar e Salvar Rosto</button>
-    </div>
-
-    <!-- Aba 3: Gerenciar Acessos -->
-    <div id="acessos" class="tab-content">
-        <h2>Gerenciar Acessos</h2>
-        <p style="color: #94a3b8;">Usuário Cadastrado Atual:</p>
-        <div id="listaAcessos">
-            <!-- Perfil gerado via JavaScript -->
-        </div>
-    </div>
-
-    <!-- Aba 4: Configuração do IP -->
-    <div id="config" class="tab-content">
-        <h2>Configuração de IP</h2>
-        <label>Endereço IP do ESP32:</label>
-        <input type="text" id="ipInput" placeholder="Ex: 192.168.1.15">
-        <button class="btn" onclick="salvarIP()">Salvar IP</button>
-    </div>
-</div>
-
-<script>
-    let streamAtual = null;
-    let modelosCarregados = false;
-    let descriptorCadastrado = null;
-
-    async function carregarModelosIA() {
-        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
-        await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
-        await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-        await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-        modelosCarregados = true;
-        document.getElementById('statusEscanear').innerText = "IA Pronta! Posicione o rosto e clique no botão.";
+      }, 200); // 200ms = 5 análises por segundo (desempenho fluido)
     }
 
-    window.onload = function() {
-        carregarModelosIA();
-        
-        let ipSalvo = localStorage.getItem('esp32_ip');
-        if(ipSalvo) document.getElementById('ipInput').value = ipSalvo;
-
-        carregarPerfilGerenciar();
-        
-        // Inicia na aba de escaneamento por padrão
-        iniciarCam('videoEscanear');
+    // Inicialização geral
+    async function init() {
+      try {
+        await loadModels();
+        await setupCamera();
+        startDetection();
+      } catch (err) {
+        statusText.innerText = "Erro ao iniciar: " + err.message;
+        console.error(err);
+      }
     }
 
-    function openTab(evt, tabId) {
-        let contents = document.querySelectorAll('.tab-content');
-        let buttons = document.querySelectorAll('.tab-btn');
-        
-        contents.forEach(content => content.classList.remove('active'));
-        buttons.forEach(btn => btn.classList.remove('active'));
-        
-        document.getElementById(tabId).classList.add('active');
-        evt.currentTarget.classList.add('active');
-
-        pararCam();
-
-        if (tabId === 'cadastrar') {
-            iniciarCam('videoCadastrar');
-        } else if (tabId === 'escanear') {
-            iniciarCam('videoEscanear');
-        } else if (tabId === 'acessos') {
-            carregarPerfilGerenciar();
-        }
-    }
-
-    async function iniciarCam(elementId) {
-        try {
-            streamAtual = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-            let videoElement = document.getElementById(elementId);
-            videoElement.srcObject = streamAtual;
-        } catch (err) {
-            alert("Erro ao acessar a câmera: " + err.message);
-        }
-    }
-
-    function pararCam() {
-        if (streamAtual) {
-            streamAtual.getTracks().forEach(track => track.stop());
-            streamAtual = null;
-        }
-    }
-
-    async function cadastrarRosto() {
-        if (!modelosCarregados) return alert("Aguarde o carregamento dos modelos de IA...");
-        
-        let nome = document.getElementById('nomeUsuario').value.trim();
-        if (!nome) return alert("Por favor, digite o nome do usuário.");
-
-        let video = document.getElementById('videoCadastrar');
-        let deteccao = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-
-        if (deteccao) {
-            descriptorCadastrado = deteccao.descriptor;
-            
-            let canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            let ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            let fotoBase64 = canvas.toDataURL('image/png');
-
-            localStorage.setItem('rosto_cadastrado', JSON.stringify(Array.from(descriptorCadastrado)));
-            localStorage.setItem('nome_cadastrado', nome);
-            localStorage.setItem('foto_cadastrada', fotoBase64);
-            
-            alert("Rosto de " + nome + " cadastrado com sucesso!");
-            carregarPerfilGerenciar();
-        } else {
-            alert("Nenhum rosto detectado! Posicione-se bem em frente à câmera.");
-        }
-    }
-
-    function carregarPerfilGerenciar() {
-        let container = document.getElementById('listaAcessos');
-        let savedDescriptor = localStorage.getItem('rosto_cadastrado');
-        let savedName = localStorage.getItem('nome_cadastrado');
-        let savedPhoto = localStorage.getItem('foto_cadastrada');
-
-        if (savedDescriptor && savedName) {
-            descriptorCadastrado = new Float32Array(JSON.parse(savedDescriptor));
-            container.innerHTML = `
-                <div class="profile-card">
-                    <div class="profile-info">
-                        <img src="${savedPhoto || 'https://via.placeholder.com/50'}" class="profile-img" alt="Foto Perfil">
-                        <div>
-                            <div style="font-weight: bold; color: #f8fafc;">${savedName}</div>
-                            <div style="font-size: 12px; color: #22c55e;">● Permissão Ativa</div>
-                        </div>
-                    </div>
-                    <button class="btn-delete" onclick="removerRosto()" title="Remover Rosto">🗑️</button>
-                </div>
-            `;
-        } else {
-            descriptorCadastrado = null;
-            container.innerHTML = `<div style="margin-top: 15px; color: #64748b;">Nenhum rosto cadastrado no sistema.</div>`;
-        }
-    }
-
-    function removerRosto() {
-        if (confirm("Tem certeza que deseja remover este perfil cadastrado?")) {
-            localStorage.removeItem('rosto_cadastrado');
-            localStorage.removeItem('nome_cadastrado');
-            localStorage.removeItem('foto_cadastrada');
-            descriptorCadastrado = null;
-            carregarPerfilGerenciar();
-            alert("Perfil removido com sucesso!");
-        }
-    }
-
-    async function validarRostoManual() {
-        let status = document.getElementById('statusEscanear');
-
-        if (!modelosCarregados) return alert("Aguarde o carregamento dos modelos de IA...");
-
-        if (!descriptorCadastrado) {
-            status.innerText = "Nenhum rosto cadastrado no sistema!";
-            status.style.backgroundColor = "#dc2626";
-            status.style.color = "#ffffff";
-            return;
-        }
-
-        status.innerText = "Analisando rosto...";
-        status.style.backgroundColor = "#0284c7";
-        status.style.color = "#ffffff";
-
-        let video = document.getElementById('videoEscanear');
-        let deteccao = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-
-        if (deteccao) {
-            let distancia = faceapi.euclideanDistance(descriptorCadastrado, deteccao.descriptor);
-            
-            if (distancia < 0.5) {
-                status.innerText = "ROSTO RECONHECIDO! Acionando motor...";
-                status.style.backgroundColor = "#16a34a";
-                status.style.color = "#ffffff";
-                
-                acionarMotor();
-            } else {
-                status.innerText = "Rosto não reconhecido (Acesso Negado)";
-                status.style.backgroundColor = "#dc2626";
-                status.style.color = "#ffffff";
-            }
-        } else {
-            status.innerText = "Nenhum rosto detectado na câmera!";
-            status.style.backgroundColor = "#dc2626";
-            status.style.color = "#ffffff";
-        }
-    }
-
-    function acionarMotor() {
-        let ip = localStorage.getItem('esp32_ip');
-        let url = ip ? 'http://' + ip + '/acionar' : '/acionar';
-        
-        fetch(url)
-            .then(() => console.log('Sinal enviado ao ESP32!'))
-            .catch(() => alert('Erro ao se comunicar com o ESP32. Verifique o IP.'));
-    }
-
-    function salvarIP() {
-        let ip = document.getElementById('ipInput').value.trim();
-        if(ip) {
-            localStorage.setItem('esp32_ip', ip);
-            alert('IP ' + ip + ' salvo com sucesso!');
-        }
-    }
-</script>
-
+    init();
+  </script>
 </body>
 </html>
