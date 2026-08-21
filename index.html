@@ -34,7 +34,7 @@
       min-height: 100vh;
     }
 
-    /* Menu de Navegação responsivo estilo App */
+    /* Menu de Navegação */
     nav { 
       background-color: #1e1e1e; 
       width: 100%; 
@@ -87,7 +87,7 @@
       display: block; 
     }
 
-    /* Ajuste de Vídeo Responsivo (Sem Cortes no Celular) */
+    /* Ajuste de Vídeo */
     .video-container { 
       position: relative; 
       width: 100%; 
@@ -107,7 +107,7 @@
       left: 0; 
     }
 
-    /* Formulários e Entradas */
+    /* Formulários e Botões */
     .form-group { 
       margin-bottom: 15px; 
       text-align: left; 
@@ -133,7 +133,7 @@
       background: #00ffcc; 
       color: #121212; 
       border: none; 
-      padding: 12px 20px; 
+      padding: 14px 20px; 
       font-weight: bold; 
       border-radius: 6px; 
       cursor: pointer; 
@@ -141,6 +141,10 @@
       width: 100%; 
       font-size: 16px; 
       margin-top: 10px; 
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
     }
 
     button.btn-action:hover { 
@@ -218,16 +222,18 @@
 
   <div class="container">
     
-    <!-- ABA 1: ESCANEAR ROSTO -->
+    <!-- ABA 1: ESCANEAR ROSTO (MANUAL) -->
     <div id="scan" class="tab-content active">
       <h2 style="font-size: 18px;">Escanear Rosto</h2>
-      <p style="color: #aaa; margin-bottom: 10px; font-size: 13px;">Aproxime-se da câmera para liberar o acesso.</p>
+      <p style="color: #aaa; margin-bottom: 10px; font-size: 13px;">Posicione o rosto na câmera e toque no botão abaixo.</p>
       
       <div class="video-container">
         <video id="video-scan" autoplay muted playsinline></video>
         <canvas id="canvas-scan"></canvas>
       </div>
-      <div id="status-scan" class="status-box">Carregando IA e Câmera...</div>
+
+      <button id="btn-escanear" class="btn-action" onclick="escanearRostoManual()"><i class="fa-solid fa-expand"></i> Escanear Agora</button>
+      <div id="status-scan" class="status-box">Aguardando posicionamento...</div>
     </div>
 
     <!-- ABA 2: CADASTRAR NOVO ROSTO -->
@@ -289,15 +295,12 @@
     let streamCamera = null;
     let perfisCadastrados = JSON.parse(localStorage.getItem('perfis_faciais')) || [];
     let ipESP32 = localStorage.getItem('ip_esp32') || '';
-    let intervalEscaneamento = null;
-    let buscandoAcesso = false;
 
     // Inicialização do App
     window.onload = async () => {
       document.getElementById('ip-esp32').value = ipESP32;
       await carregarModelosIA();
       await iniciarCamera('video-scan');
-      iniciarMonitoramentoScan();
       atualizarTabelaPerfis();
     };
 
@@ -309,10 +312,8 @@
       document.getElementById(tabId).classList.add('active');
       if (event) event.currentTarget.classList.add('active');
 
-      if (intervalEscaneamento) clearInterval(intervalEscaneamento);
-
       if (tabId === 'scan') {
-        iniciarCamera('video-scan').then(() => iniciarMonitoramentoScan());
+        iniciarCamera('video-scan');
       } else if (tabId === 'cadastrar') {
         iniciarCamera('video-cadastrar');
       }
@@ -350,71 +351,85 @@
       }
     }
 
-    // Escaneamento Facial Fluido
-    function iniciarMonitoramentoScan() {
+    // Função de Voz Humana (Text-to-Speech)
+    function falarBoasVindas(nome) {
+      if ('speechSynthesis' in window) {
+        const mensagem = new SpeechSynthesisUtterance(`Bem-vindo, ${nome}`);
+        mensagem.lang = 'pt-BR';
+        mensagem.rate = 1.0; // Velocidade normal da fala
+        mensagem.pitch = 1.0;
+        window.speechSynthesis.speak(mensagem);
+      }
+    }
+
+    // ABA 1: Escaneamento Manual com Botão
+    async function escanearRostoManual() {
       const video = document.getElementById('video-scan');
       const canvas = document.getElementById('canvas-scan');
       const statusBox = document.getElementById('status-scan');
+      const btn = document.getElementById('btn-escanear');
 
-      intervalEscaneamento = setInterval(async () => {
-        if (buscandoAcesso) return;
+      if (perfisCadastrados.length === 0) {
+        statusBox.innerText = "Nenhum perfil cadastrado.";
+        statusBox.className = "status-box status-danger";
+        return;
+      }
 
-        if (perfisCadastrados.length === 0) {
-          statusBox.innerText = "Nenhum perfil cadastrado.";
-          statusBox.className = "status-box status-danger";
-          return;
+      // Bloqueia o botão enquanto analisa
+      btn.disabled = true;
+      statusBox.innerText = "Analisando rosto...";
+      statusBox.className = "status-box";
+
+      const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+      const deteccoes = await faceapi.detectAllFaces(video, options).withFaceLandmarks(true).withFaceDescriptors();
+
+      const displaySize = { width: video.clientWidth, height: video.clientHeight };
+      faceapi.matchDimensions(canvas, displaySize);
+      const resizedDeteccoes = faceapi.resizeResults(deteccoes, displaySize);
+
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      faceapi.draw.drawDetections(canvas, resizedDeteccoes);
+
+      if (deteccoes.length > 0) {
+        const descriptorCapturado = deteccoes[0].descriptor;
+        let autorizado = false;
+        let nomeAutorizado = "";
+
+        for (let perfil of perfisCadastrados) {
+          const descriptorSalvo = new Float32Array(perfil.descriptor);
+          const distancia = faceapi.euclideanDistance(descriptorCapturado, descriptorSalvo);
+          
+          if (distancia < 0.5) {
+            autorizado = true;
+            nomeAutorizado = perfil.nome;
+            break;
+          }
         }
 
-        const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
-        const deteccoes = await faceapi.detectAllFaces(video, options).withFaceLandmarks(true).withFaceDescriptors();
+        if (autorizado) {
+          statusBox.innerText = `Acesso LIBERADO: ${nomeAutorizado}!`;
+          statusBox.className = "status-box status-success";
+          
+          // Emitir a voz no celular
+          falarBoasVindas(nomeAutorizado);
 
-        const displaySize = { width: video.clientWidth, height: video.clientHeight };
-        faceapi.matchDimensions(canvas, displaySize);
-        const resizedDeteccoes = faceapi.resizeResults(deteccoes, displaySize);
-
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        faceapi.draw.drawDetections(canvas, resizedDeteccoes);
-
-        if (deteccoes.length > 0) {
-          const descriptorCapturado = deteccoes[0].descriptor;
-          let autorizado = false;
-          let nomeAutorizado = "";
-
-          for (let perfil of perfisCadastrados) {
-            const descriptorSalvo = new Float32Array(perfil.descriptor);
-            const distancia = faceapi.euclideanDistance(descriptorCapturado, descriptorSalvo);
-            
-            if (distancia < 0.5) {
-              autorizado = true;
-              nomeAutorizado = perfil.nome;
-              break;
-            }
-          }
-
-          if (autorizado) {
-            buscandoAcesso = true;
-            statusBox.innerText = `Acesso LIBERADO: ${nomeAutorizado}!`;
-            statusBox.className = "status-box status-success";
-            enviarComandoESP32();
-
-            setTimeout(() => {
-              buscandoAcesso = false;
-              statusBox.innerText = "Aguardando rosto...";
-              statusBox.className = "status-box";
-            }, 4000);
-          } else {
-            statusBox.innerText = "Rosto NÃO reconhecido!";
-            statusBox.className = "status-box status-danger";
-          }
+          // Enviar comando para o ESP32 abrir a trava
+          enviarComandoESP32();
         } else {
-          statusBox.innerText = "Aproxime-se da câmera...";
-          statusBox.className = "status-box";
+          statusBox.innerText = "Rosto NÃO reconhecido!";
+          statusBox.className = "status-box status-danger";
         }
-      }, 250);
+      } else {
+        statusBox.innerText = "Nenhum rosto detectado. Aproxime-se da câmera.";
+        statusBox.className = "status-box status-danger";
+      }
+
+      // Reativa o botão
+      btn.disabled = false;
     }
 
-    // Cadastro de Rosto
+    // ABA 2: Cadastro de Rosto
     async function cadastrarRosto() {
       const nomeInput = document.getElementById('nome-usuario').value;
       const statusBox = document.getElementById('status-cadastrar');
@@ -453,7 +468,7 @@
       }
     }
 
-    // Atualização da Tabela de Perfis
+    // ABA 3: Atualização da Tabela de Perfis
     function atualizarTabelaPerfis() {
       const tbody = document.getElementById('tabela-perfis');
       tbody.innerHTML = "";
@@ -487,7 +502,7 @@
       }
     }
 
-    // Configuração do ESP32
+    // ABA 4: Configuração do ESP32
     function salvarConfigESP() {
       const ip = document.getElementById('ip-esp32').value.trim();
       const statusBox = document.getElementById('status-config');
