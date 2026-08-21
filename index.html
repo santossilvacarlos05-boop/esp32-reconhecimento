@@ -2,68 +2,226 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Controle de Acesso Facial</title>
+
+  <!-- Tags para comportamento de App em telas móveis -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#121212">
+
   <!-- CSS FontAwesome para os Ícones -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
   <!-- Face-API.js via CDN -->
   <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
   
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background-color: #121212; color: #ffffff; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
-    
-    /* Navegação */
-    nav { background-color: #1e1e1e; width: 100%; display: flex; justify-content: center; border-bottom: 1px solid #333; position: sticky; top: 0; z-index: 100; }
-    nav button { background: none; border: none; color: #aaa; padding: 15px 25px; font-size: 16px; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 8px; }
-    nav button:hover, nav button.active { color: #00ffcc; border-bottom: 3px solid #00ffcc; }
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+    }
 
-    /* Conteúdo das Abas */
-    .container { width: 90%; max-width: 800px; margin: 20px auto; }
-    .tab-content { display: none; background: #1e1e1e; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-    .tab-content.active { display: block; }
+    html, body {
+      width: 100%;
+      max-width: 100vw;
+      overflow-x: hidden;
+      background-color: #121212;
+      color: #ffffff;
+      min-height: 100vh;
+    }
 
-    /* Elementos de Vídeo e Canvas */
-    .video-container { position: relative; width: 100%; max-width: 640px; margin: 0 auto; border-radius: 8px; overflow: hidden; background: #000; }
-    video, canvas { width: 100%; height: auto; display: block; }
-    canvas { position: absolute; top: 0; left: 0; }
+    /* Menu de Navegação responsivo estilo App */
+    nav { 
+      background-color: #1e1e1e; 
+      width: 100%; 
+      display: flex; 
+      justify-content: space-around; 
+      border-bottom: 1px solid #333; 
+      position: sticky; 
+      top: 0; 
+      z-index: 100; 
+    }
 
-    /* Formulários e Inputs */
-    .form-group { margin-bottom: 15px; text-align: left; }
-    label { display: block; margin-bottom: 5px; color: #bbb; }
-    input[type="text"] { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: #fff; font-size: 16px; }
-    button.btn-action { background: #00ffcc; color: #121212; border: none; padding: 12px 20px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; width: 100%; font-size: 16px; margin-top: 10px; }
-    button.btn-action:hover { background: #00d6a8; }
+    nav button { 
+      background: none; 
+      border: none; 
+      color: #aaa; 
+      padding: 12px 6px; 
+      font-size: 12px; 
+      cursor: pointer; 
+      transition: 0.3s; 
+      display: flex; 
+      flex-direction: column;
+      align-items: center; 
+      gap: 4px; 
+      flex: 1;
+    }
 
-    /* Tabela de Gerenciamento */
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #333; }
-    th { color: #00ffcc; }
-    .btn-delete { background: none; border: none; color: #ff4d4d; cursor: pointer; font-size: 18px; transition: 0.2s; }
-    .btn-delete:hover { color: #ff0000; transform: scale(1.2); }
+    nav button:hover, nav button.active { 
+      color: #00ffcc; 
+      border-bottom: 3px solid #00ffcc; 
+    }
 
-    /* Caixas de Status */
-    .status-box { margin-top: 15px; padding: 12px; border-radius: 6px; background: #2a2a2a; text-align: center; font-weight: bold; }
-    .status-success { color: #00ffcc; border: 1px solid #00ffcc; }
-    .status-danger { color: #ff4d4d; border: 1px solid #ff4d4d; }
+    /* Container Principal */
+    .container { 
+      width: 100%; 
+      max-width: 600px; 
+      padding: 15px; 
+      margin: 0 auto; 
+    }
+
+    .tab-content { 
+      display: none; 
+      background: #1e1e1e; 
+      padding: 20px; 
+      border-radius: 12px; 
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5); 
+      width: 100%;
+    }
+
+    .tab-content.active { 
+      display: block; 
+    }
+
+    /* Ajuste de Vídeo Responsivo (Sem Cortes no Celular) */
+    .video-container { 
+      position: relative; 
+      width: 100%; 
+      aspect-ratio: 4 / 3; 
+      border-radius: 8px; 
+      overflow: hidden; 
+      background: #000; 
+      margin: 15px 0; 
+    }
+
+    video, canvas { 
+      width: 100% !important; 
+      height: 100% !important; 
+      object-fit: cover;
+      position: absolute; 
+      top: 0; 
+      left: 0; 
+    }
+
+    /* Formulários e Entradas */
+    .form-group { 
+      margin-bottom: 15px; 
+      text-align: left; 
+    }
+
+    label { 
+      display: block; 
+      margin-bottom: 5px; 
+      color: #bbb; 
+    }
+
+    input[type="text"] { 
+      width: 100%; 
+      padding: 12px; 
+      border-radius: 6px; 
+      border: 1px solid #444; 
+      background: #2a2a2a; 
+      color: #fff; 
+      font-size: 16px; 
+    }
+
+    button.btn-action { 
+      background: #00ffcc; 
+      color: #121212; 
+      border: none; 
+      padding: 12px 20px; 
+      font-weight: bold; 
+      border-radius: 6px; 
+      cursor: pointer; 
+      transition: 0.2s; 
+      width: 100%; 
+      font-size: 16px; 
+      margin-top: 10px; 
+    }
+
+    button.btn-action:hover { 
+      background: #00d6a8; 
+    }
+
+    /* Tabela de Perfis */
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      margin-top: 15px; 
+    }
+
+    th, td { 
+      padding: 12px 8px; 
+      text-align: left; 
+      border-bottom: 1px solid #333; 
+      font-size: 14px;
+    }
+
+    th { 
+      color: #00ffcc; 
+    }
+
+    .btn-delete { 
+      background: none; 
+      border: none; 
+      color: #ff4d4d; 
+      cursor: pointer; 
+      font-size: 18px; 
+      transition: 0.2s; 
+    }
+
+    .btn-delete:hover { 
+      color: #ff0000; 
+      transform: scale(1.2); 
+    }
+
+    /* Mensagens de Status */
+    .status-box { 
+      margin-top: 15px; 
+      padding: 12px; 
+      border-radius: 6px; 
+      background: #2a2a2a; 
+      text-align: center; 
+      font-weight: bold; 
+      font-size: 14px;
+    }
+
+    .status-success { 
+      color: #00ffcc; 
+      border: 1px solid #00ffcc; 
+    }
+
+    .status-danger { 
+      color: #ff4d4d; 
+      border: 1px solid #ff4d4d; 
+    }
   </style>
 </head>
 <body>
 
   <!-- Menu de Navegação -->
   <nav>
-    <button class="active" onclick="openTab('scan')"><i class="fa-solid fa-camera"></i> Escanear</button>
-    <button onclick="openTab('cadastrar')"><i class="fa-solid fa-user-plus"></i> Cadastrar</button>
-    <button onclick="openTab('gerenciar')"><i class="fa-solid fa-users-gear"></i> Perfis</button>
-    <button onclick="openTab('config')"><i class="fa-solid fa-microchip"></i> Configurar ESP32</button>
+    <button class="active" onclick="openTab('scan', event)"><i class="fa-solid fa-camera"></i> Escanear</button>
+    <button onclick="openTab('cadastrar', event)"><i class="fa-solid fa-user-plus"></i> Cadastrar</button>
+    <button onclick="openTab('gerenciar', event)"><i class="fa-solid fa-users-gear"></i> Perfis</button>
+    <button onclick="openTab('config', event)"><i class="fa-solid fa-microchip"></i> ESP32</button>
   </nav>
 
   <div class="container">
     
     <!-- ABA 1: ESCANEAR ROSTO -->
     <div id="scan" class="tab-content active">
-      <h2>Escanear Rosto</h2>
-      <p style="color: #aaa; margin-bottom: 15px;">Aproxime-se da câmera para liberação do acesso.</p>
+      <h2 style="font-size: 18px;">Escanear Rosto</h2>
+      <p style="color: #aaa; margin-bottom: 10px; font-size: 13px;">Aproxime-se da câmera para liberar o acesso.</p>
       
       <div class="video-container">
         <video id="video-scan" autoplay muted playsinline></video>
@@ -74,52 +232,54 @@
 
     <!-- ABA 2: CADASTRAR NOVO ROSTO -->
     <div id="cadastrar" class="tab-content">
-      <h2>Cadastrar Novo Perfil</h2>
-      <p style="color: #aaa; margin-bottom: 15px;">Digite o nome da pessoa e olhe para a câmera para registrar.</p>
+      <h2 style="font-size: 18px;">Cadastrar Novo Perfil</h2>
+      <p style="color: #aaa; margin-bottom: 10px; font-size: 13px;">Digite o nome e olhe para a câmera para registrar.</p>
       
       <div class="form-group">
         <label for="nome-usuario">Nome Completo:</label>
         <input type="text" id="nome-usuario" placeholder="Ex: João Silva">
       </div>
       
-      <div class="video-container" style="max-width: 400px;">
+      <div class="video-container">
         <video id="video-cadastrar" autoplay muted playsinline></video>
       </div>
       
-      <button class="btn-action" onclick="cadastrarRosto()"><i class="fa-solid fa-id-card"></i> Capturar e Salvar Rosto</button>
+      <button class="btn-action" onclick="cadastrarRosto()"><i class="fa-solid fa-id-card"></i> Capturar e Salvar</button>
       <div id="status-cadastrar" class="status-box" style="display:none;"></div>
     </div>
 
-    <!-- ABA 3: GERENCIAR PERFIS (EXCLUIR) -->
+    <!-- ABA 3: GERENCIAR PERFIS -->
     <div id="gerenciar" class="tab-content">
-      <h2>Perfis Cadastrados</h2>
-      <p style="color: #aaa; margin-bottom: 15px;">Lista de pessoas com acesso liberado no sistema.</p>
+      <h2 style="font-size: 18px;">Perfis Cadastrados</h2>
+      <p style="color: #aaa; margin-bottom: 10px; font-size: 13px;">Lista de pessoas autorizadas.</p>
       
-      <table>
-        <thead>
-          <tr>
-            <th>Nome</th>
-            <th>Data de Cadastro</th>
-            <th style="width: 50px;">Ação</th>
-          </tr>
-        </thead>
-        <tbody id="tabela-perfis">
-          <!-- Linhas inseridas dinamicamente via JS -->
-        </tbody>
-      </table>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Data</th>
+              <th style="width: 40px;">Ação</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-perfis">
+            <!-- Linhas inseridas dinamicamente -->
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- ABA 4: CONFIGURAÇÃO DO ESP32 -->
     <div id="config" class="tab-content">
-      <h2>Configuração de Comunicação ESP32</h2>
-      <p style="color: #aaa; margin-bottom: 15px;">Insira o IP local do seu ESP32 para enviar os comandos de abertura de trava/relé.</p>
+      <h2 style="font-size: 18px;">Comunicação ESP32</h2>
+      <p style="color: #aaa; margin-bottom: 10px; font-size: 13px;">Insira o IP local do seu ESP32.</p>
       
       <div class="form-group">
         <label for="ip-esp32">Endereço IP do ESP32:</label>
         <input type="text" id="ip-esp32" placeholder="Ex: 192.168.1.50">
       </div>
       
-      <button class="btn-action" onclick="salvarConfigESP()"><i class="fa-solid fa-floppy-disk"></i> Salvar Endereço IP</button>
+      <button class="btn-action" onclick="salvarConfigESP()"><i class="fa-solid fa-floppy-disk"></i> Salvar IP</button>
       <div id="status-config" class="status-box" style="display:none;"></div>
     </div>
 
@@ -132,45 +292,47 @@
     let intervalEscaneamento = null;
     let buscandoAcesso = false;
 
-    // Inicialização
+    // Inicialização do App
     window.onload = async () => {
       document.getElementById('ip-esp32').value = ipESP32;
       await carregarModelosIA();
-      iniciarCamera('video-scan');
+      await iniciarCamera('video-scan');
       iniciarMonitoramentoScan();
       atualizarTabelaPerfis();
     };
 
-    // Navegação entre Abas
-    function openTab(tabId) {
+    // Alternar entre Abas
+    function openTab(tabId, event) {
       document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
       document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active'));
       
       document.getElementById(tabId).classList.add('active');
-      event.currentTarget.classList.add('active');
+      if (event) event.currentTarget.classList.add('active');
 
-      // Parar interval de scan se mudar de aba
       if (intervalEscaneamento) clearInterval(intervalEscaneamento);
 
       if (tabId === 'scan') {
-        iniciarCamera('video-scan');
-        iniciarMonitoramentoScan();
+        iniciarCamera('video-scan').then(() => iniciarMonitoramentoScan());
       } else if (tabId === 'cadastrar') {
         iniciarCamera('video-cadastrar');
       }
     }
 
-    // Carregar Modelos Ultra-Leves da CDN para não dar erro 404
+    // Carregamento dos modelos de IA via CDN
     async function carregarModelosIA() {
       const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
-      await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-        faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
-        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-      ]);
+      try {
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+          faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        ]);
+      } catch (e) {
+        console.error("Erro ao carregar modelos:", e);
+      }
     }
 
-    // Gerenciador de Câmera
+    // Acesso à Câmera
     async function iniciarCamera(videoId) {
       if (streamCamera) {
         streamCamera.getTracks().forEach(track => track.stop());
@@ -178,27 +340,28 @@
       const video = document.getElementById(videoId);
       try {
         streamCamera = await navigator.mediaDevices.getUserMedia({
-          video: { width: 640, height: 480 },
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
           audio: false
         });
         video.srcObject = streamCamera;
+        return new Promise(resolve => video.onloadedmetadata = () => resolve());
       } catch (err) {
-        alert("Erro ao acessar a câmera: " + err.message);
+        alert("Erro ao acessar câmera: " + err.message);
       }
     }
 
-    // ABA 1: Lógica do Escaneamento
+    // Escaneamento Facial Fluido
     function iniciarMonitoramentoScan() {
       const video = document.getElementById('video-scan');
       const canvas = document.getElementById('canvas-scan');
       const statusBox = document.getElementById('status-scan');
 
       intervalEscaneamento = setInterval(async () => {
-        if (buscandoAcesso || perfisCadastrados.length === 0) {
-          if(perfisCadastrados.length === 0) {
-            statusBox.innerText = "Nenhum perfil cadastrado no sistema.";
-            statusBox.className = "status-box status-danger";
-          }
+        if (buscandoAcesso) return;
+
+        if (perfisCadastrados.length === 0) {
+          statusBox.innerText = "Nenhum perfil cadastrado.";
+          statusBox.className = "status-box status-danger";
           return;
         }
 
@@ -218,12 +381,11 @@
           let autorizado = false;
           let nomeAutorizado = "";
 
-          // Comparação do rosto capturado com o banco de dados
           for (let perfil of perfisCadastrados) {
             const descriptorSalvo = new Float32Array(perfil.descriptor);
             const distancia = faceapi.euclideanDistance(descriptorCapturado, descriptorSalvo);
             
-            if (distancia < 0.5) { // Limiar de precisão
+            if (distancia < 0.5) {
               autorizado = true;
               nomeAutorizado = perfil.nome;
               break;
@@ -232,7 +394,7 @@
 
           if (autorizado) {
             buscandoAcesso = true;
-            statusBox.innerText = `Acesso LIBERADO: Bem-vindo(a) ${nomeAutorizado}!`;
+            statusBox.innerText = `Acesso LIBERADO: ${nomeAutorizado}!`;
             statusBox.className = "status-box status-success";
             enviarComandoESP32();
 
@@ -240,31 +402,31 @@
               buscandoAcesso = false;
               statusBox.innerText = "Aguardando rosto...";
               statusBox.className = "status-box";
-            }, 5000);
+            }, 4000);
           } else {
             statusBox.innerText = "Rosto NÃO reconhecido!";
             statusBox.className = "status-box status-danger";
           }
         } else {
-          statusBox.innerText = "Aproxima-se da câmera...";
+          statusBox.innerText = "Aproxime-se da câmera...";
           statusBox.className = "status-box";
         }
-      }, 250); // Leitura a cada 250ms para máxima fluidez sem travar
+      }, 250);
     }
 
-    // ABA 2: Cadastrar Rosto
+    // Cadastro de Rosto
     async function cadastrarRosto() {
       const nomeInput = document.getElementById('nome-usuario').value;
       const statusBox = document.getElementById('status-cadastrar');
       const video = document.getElementById('video-cadastrar');
 
       if (!nomeInput.trim()) {
-        alert("Por favor, digite o nome do usuário.");
+        alert("Por favor, informe um nome.");
         return;
       }
 
       statusBox.style.display = "block";
-      statusBox.innerText = "Analisando e salvando características...";
+      statusBox.innerText = "Analisando rosto...";
       statusBox.className = "status-box";
 
       const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
@@ -281,23 +443,23 @@
         perfisCadastrados.push(novoPerfil);
         localStorage.setItem('perfis_faciais', JSON.stringify(perfisCadastrados));
 
-        statusBox.innerText = `Perfil de ${nomeInput} cadastrado com sucesso!`;
+        statusBox.innerText = `${nomeInput} cadastrado(a) com sucesso!`;
         statusBox.className = "status-box status-success";
         document.getElementById('nome-usuario').value = "";
         atualizarTabelaPerfis();
       } else {
-        statusBox.innerText = "Nenhum rosto detectado na câmera! Tente se aproximar mais.";
+        statusBox.innerText = "Rosto não detectado. Tente se aproximar.";
         statusBox.className = "status-box status-danger";
       }
     }
 
-    // ABA 3: Gerenciar Perfis (Listar e Deletar)
+    // Atualização da Tabela de Perfis
     function atualizarTabelaPerfis() {
       const tbody = document.getElementById('tabela-perfis');
       tbody.innerHTML = "";
 
       if (perfisCadastrados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#888;">Nenhum perfil cadastrado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#888;">Nenhum perfil.</td></tr>`;
         return;
       }
 
@@ -307,7 +469,7 @@
           <td>${perfil.nome}</td>
           <td>${perfil.data}</td>
           <td>
-            <button class="btn-delete" onclick="excluirPerfil(${perfil.id})" title="Excluir Perfil">
+            <button class="btn-delete" onclick="excluirPerfil(${perfil.id})" title="Excluir">
               <i class="fa-solid fa-trash-can"></i>
             </button>
           </td>
@@ -316,15 +478,16 @@
       });
     }
 
+    // Exclusão de Perfil
     function excluirPerfil(id) {
-      if (confirm("Tem certeza que deseja apagar a autorização deste perfil?")) {
+      if (confirm("Remover o acesso desta pessoa?")) {
         perfisCadastrados = perfisCadastrados.filter(p => p.id !== id);
         localStorage.setItem('perfis_faciais', JSON.stringify(perfisCadastrados));
         atualizarTabelaPerfis();
       }
     }
 
-    // ABA 4: Configuração e envio ao ESP32
+    // Configuração do ESP32
     function salvarConfigESP() {
       const ip = document.getElementById('ip-esp32').value.trim();
       const statusBox = document.getElementById('status-config');
@@ -333,20 +496,15 @@
       localStorage.setItem('ip_esp32', ip);
 
       statusBox.style.display = "block";
-      statusBox.innerText = "Endereço IP do ESP32 gravado com sucesso!";
+      statusBox.innerText = "IP salvo com sucesso!";
       statusBox.className = "status-box status-success";
     }
 
     function enviarComandoESP32() {
-      if (!ipESP32) {
-        console.warn("Endereço IP do ESP32 não configurado.");
-        return;
-      }
-
-      // Envia uma requisição HTTP GET para a rota de acionamento do ESP32
+      if (!ipESP32) return;
       fetch(`http://${ipESP32}/abrir`, { mode: 'no-cors' })
         .then(() => console.log("Comando enviado ao ESP32!"))
-        .catch(err => console.error("Falha na comunicação com ESP32:", err));
+        .catch(err => console.error("Erro na requisição ao ESP32:", err));
     }
   </script>
 </body>
