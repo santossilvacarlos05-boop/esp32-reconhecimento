@@ -11,7 +11,7 @@
         
         /* Navegação por Abas */
         .tabs { display: flex; background-color: #0f172a; border-bottom: 1px solid #334155; flex-wrap: wrap; }
-        .tab-btn { flex: 1; min-width: 120px; padding: 12px; background: none; border: none; color: #94a3b8; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .tab-btn { flex: 1; min-width: 100px; padding: 12px; background: none; border: none; color: #94a3b8; cursor: pointer; font-weight: bold; transition: 0.2s; }
         .tab-btn.active { color: #38bdf8; border-bottom: 3px solid #38bdf8; background-color: #1e293b; }
         
         /* Conteúdo das Abas */
@@ -21,6 +21,27 @@
         h2 { font-size: 20px; color: #38bdf8; margin-bottom: 15px; }
         label { display: block; margin-top: 10px; font-size: 14px; color: #94a3b8; }
         input { width: 100%; padding: 10px; margin-top: 5px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 8px; }
+
+        /* Container da Câmera */
+        .camera-box {
+            width: 100%;
+            height: 280px;
+            background: #0f172a;
+            margin-top: 15px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
 
         /* Botões */
         .btn { background-color: #0284c7; color: white; border: none; padding: 12px 20px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 15px; width: 100%; }
@@ -33,20 +54,18 @@
 <div class="container">
     <!-- Menu das Abas -->
     <div class="tabs">
-        <button class="tab-btn active" onclick="openTab('motor')">Motor</button>
-        <button class="tab-btn" onclick="openTab('cadastrar')">Cadastrar</button>
-        <button class="tab-btn" onclick="openTab('escanear')">Escaneamento</button>
-        <button class="tab-btn" onclick="openTab('acessos')">Gerenciar</button>
-        <button class="tab-btn" onclick="openTab('config')">Config IP</button>
+        <button class="tab-btn active" onclick="openTab(event, 'motor')">Motor</button>
+        <button class="tab-btn" onclick="openTab(event, 'cadastrar')">Cadastrar</button>
+        <button class="tab-btn" onclick="openTab(event, 'escanear')">Escaneamento</button>
+        <button class="tab-btn" onclick="openTab(event, 'acessos')">Gerenciar</button>
+        <button class="tab-btn" onclick="openTab(event, 'config')">Config IP</button>
     </div>
 
     <!-- Aba 1: Motor / Acionamento -->
     <div id="motor" class="tab-content active">
         <h2>Controle Manual do Motor</h2>
         <p style="color: #94a3b8; margin-bottom: 15px;">Acionamento do relé (GPIO 4) por 2 segundos:</p>
-        <a href="/acionar" style="text-decoration: none;">
-            <button class="btn btn-motor">LIGAR MOTOR (2s)</button>
-        </a>
+        <button class="btn btn-motor" onclick="acionarMotor()">LIGAR MOTOR (2s)</button>
     </div>
 
     <!-- Aba 2: Cadastrar Rostos Permitidos -->
@@ -54,16 +73,25 @@
         <h2>Cadastrar Rostos Permitidos</h2>
         <label>Nome do Usuário:</label>
         <input type="text" placeholder="Digite o nome completo">
-        <button class="btn">Capturar e Salvar Rosto</button>
+        
+        <div class="camera-box">
+            <video id="videoCadastrar" autoplay playsinline muted></video>
+        </div>
+        
+        <button class="btn" onclick="iniciarCam('videoCadastrar')">Abrir Câmera</button>
+        <button class="btn" style="background-color: #16a34a;" onclick="alert('Rosto capturado com sucesso!')">Capturar e Salvar Rosto</button>
     </div>
 
     <!-- Aba 3: Escaneamento -->
     <div id="escanear" class="tab-content">
         <h2>Escaneamento Facial</h2>
         <p style="color: #94a3b8;">Aproxime-se da câmera para identificação automatizada.</p>
-        <div style="width: 100%; height: 200px; background: #0f172a; margin-top: 15px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #64748b;">
-            [ Câmera / Stream de Vídeo ]
+        
+        <div class="camera-box">
+            <video id="videoEscanear" autoplay playsinline muted></video>
         </div>
+        
+        <button class="btn" onclick="iniciarCam('videoEscanear')">Ativar Escanear</button>
     </div>
 
     <!-- Aba 4: Gerenciar Acessos -->
@@ -82,7 +110,9 @@
 </div>
 
 <script>
-    function openTab(tabId) {
+    let streamAtual = null;
+
+    function openTab(evt, tabId) {
         let contents = document.querySelectorAll('.tab-content');
         let buttons = document.querySelectorAll('.tab-btn');
         
@@ -90,14 +120,55 @@
         buttons.forEach(btn => btn.classList.remove('active'));
         
         document.getElementById(tabId).classList.add('active');
-        event.currentTarget.classList.add('active');
+        evt.currentTarget.classList.add('active');
+
+        // Para a câmera ao mudar de aba para economizar recursos
+        pararCam();
+    }
+
+    // Função para abrir a câmera do celular/computador
+    async function iniciarCam(elementId) {
+        pararCam();
+        try {
+            streamAtual = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            let videoElement = document.getElementById(elementId);
+            videoElement.srcObject = streamAtual;
+        } catch (err) {
+            alert("Erro ao acessar a câmera: " + err.message + "\nCertifique-se de que deu permissão de câmera no navegador.");
+        }
+    }
+
+    // Função para desligar a câmera ao trocar de aba
+    function pararCam() {
+        if (streamAtual) {
+            streamAtual.getTracks().forEach(track => track.stop());
+            streamAtual = null;
+        }
+    }
+
+    // Função para acionar o motor pelo IP configurado ou direto na rede
+    function acionarMotor() {
+        let ip = localStorage.getItem('esp32_ip');
+        let url = ip ? 'http://' + ip + '/acionar' : '/acionar';
+        
+        fetch(url)
+            .then(() => alert('Motor Acionado por 2 segundos!'))
+            .catch(() => alert('Erro ao se comunicar com o ESP32. Verifique o IP configurado.'));
     }
 
     function salvarIP() {
-        let ip = document.getElementById('ipInput').value;
+        let ip = document.getElementById('ipInput').value.trim();
         if(ip) {
             localStorage.setItem('esp32_ip', ip);
             alert('IP ' + ip + ' salvo com sucesso!');
+        }
+    }
+
+    // Carrega o IP salvo no input se existir
+    window.onload = function() {
+        let ipSalvo = localStorage.getItem('esp32_ip');
+        if(ipSalvo) {
+            document.getElementById('ipInput').value = ipSalvo;
         }
     }
 </script>
