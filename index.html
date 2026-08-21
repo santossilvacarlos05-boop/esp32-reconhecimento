@@ -151,6 +151,12 @@
       background: #00d6a8; 
     }
 
+    button.btn-action:disabled {
+      background: #555;
+      color: #aaa;
+      cursor: not-allowed;
+    }
+
     /* Tabela de Perfis */
     .table-responsive {
       width: 100%;
@@ -295,6 +301,18 @@
     let streamCamera = null;
     let perfisCadastrados = JSON.parse(localStorage.getItem('perfis_faciais')) || [];
     let ipESP32 = localStorage.getItem('ip_esp32') || '';
+    let vozesDisponiveis = [];
+
+    // Carregamento prévio e instantâneo das vozes do celular
+    function carregarVozes() {
+      if ('speechSynthesis' in window) {
+        vozesDisponiveis = window.speechSynthesis.getVoices();
+      }
+    }
+    carregarVozes();
+    if (typeof speechSynthesis !== 'undefined' && speechSynthesis.onvoiceschanged !== undefined) {
+      speechSynthesis.onvoiceschanged = carregarVozes;
+    }
 
     // Inicialização do App
     window.onload = async () => {
@@ -351,13 +369,25 @@
       }
     }
 
-    // Função de Voz Humana (Text-to-Speech)
+    // Função de Voz sem Atrasos
     function falarBoasVindas(nome) {
       if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); // Cancela qualquer fala pendente imediatamente
+
         const mensagem = new SpeechSynthesisUtterance(`Bem-vindo, ${nome}`);
         mensagem.lang = 'pt-BR';
-        mensagem.rate = 1.0; // Velocidade normal da fala
-        mensagem.pitch = 1.0;
+        mensagem.rate = 1.2; // Velocidade otimizada para resposta imediata
+
+        if (vozesDisponiveis.length === 0) {
+          vozesDisponiveis = window.speechSynthesis.getVoices();
+        }
+
+        // Prioriza a voz local do dispositivo
+        const vozPt = vozesDisponiveis.find(v => v.lang.includes('pt') && v.localService) || 
+                      vozesDisponiveis.find(v => v.lang.includes('pt'));
+                      
+        if (vozPt) mensagem.voice = vozPt;
+
         window.speechSynthesis.speak(mensagem);
       }
     }
@@ -375,7 +405,6 @@
         return;
       }
 
-      // Bloqueia o botão enquanto analisa
       btn.disabled = true;
       statusBox.innerText = "Analisando rosto...";
       statusBox.className = "status-box";
@@ -411,10 +440,10 @@
           statusBox.innerText = `Acesso LIBERADO: ${nomeAutorizado}!`;
           statusBox.className = "status-box status-success";
           
-          // Emitir a voz no celular
+          // 1. Fala IMEDIATAMENTE antes de realizar requisições de rede
           falarBoasVindas(nomeAutorizado);
 
-          // Enviar comando para o ESP32 abrir a trava
+          // 2. Envia a requisição de abertura ao ESP32
           enviarComandoESP32();
         } else {
           statusBox.innerText = "Rosto NÃO reconhecido!";
@@ -425,7 +454,6 @@
         statusBox.className = "status-box status-danger";
       }
 
-      // Reativa o botão
       btn.disabled = false;
     }
 
