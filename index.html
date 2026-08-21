@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Controle & Acesso ESP32</title>
+    <title>Sistema de Controle & Acesso por Reconhecimento Facial</title>
+    
+    <!-- Biblioteca Face-API.js para Reconhecimento Facial no Navegador -->
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
         body { background-color: #0f172a; color: #f8fafc; padding: 20px; display: flex; justify-content: center; }
@@ -43,64 +47,66 @@
             object-fit: cover;
         }
 
-        /* Botões */
+        /* Mensagem de Status */
+        .status-msg {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            background-color: #334155;
+            color: #38bdf8;
+            text-align: center;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
         .btn { background-color: #0284c7; color: white; border: none; padding: 12px 20px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 15px; width: 100%; }
-        .btn-motor { background: linear-gradient(135deg, #22c55e, #16a34a); box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3); }
-        .btn-motor:hover { background: linear-gradient(135deg, #16a34a, #15803d); }
+        .btn-green { background: linear-gradient(135deg, #22c55e, #16a34a); }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <!-- Menu das Abas -->
+    <!-- Menu das Abas (Aba Motor Removida) -->
     <div class="tabs">
-        <button class="tab-btn active" onclick="openTab(event, 'motor')">Motor</button>
-        <button class="tab-btn" onclick="openTab(event, 'cadastrar')">Cadastrar</button>
+        <button class="tab-btn active" onclick="openTab(event, 'cadastrar')">Cadastrar</button>
         <button class="tab-btn" onclick="openTab(event, 'escanear')">Escaneamento</button>
         <button class="tab-btn" onclick="openTab(event, 'acessos')">Gerenciar</button>
         <button class="tab-btn" onclick="openTab(event, 'config')">Config IP</button>
     </div>
 
-    <!-- Aba 1: Motor / Acionamento -->
-    <div id="motor" class="tab-content active">
-        <h2>Controle Manual do Motor</h2>
-        <p style="color: #94a3b8; margin-bottom: 15px;">Acionamento do relé (GPIO 4) por 2 segundos:</p>
-        <button class="btn btn-motor" onclick="acionarMotor()">LIGAR MOTOR (2s)</button>
-    </div>
-
-    <!-- Aba 2: Cadastrar Rostos Permitidos -->
-    <div id="cadastrar" class="tab-content">
-        <h2>Cadastrar Rostos Permitidos</h2>
+    <!-- Aba 1: Cadastrar Rostos Permitidos -->
+    <div id="cadastrar" class="tab-content active">
+        <h2>Cadastrar Rosto Permitido</h2>
         <label>Nome do Usuário:</label>
-        <input type="text" placeholder="Digite o nome completo">
+        <input type="text" id="nomeUsuario" placeholder="Digite o nome completo">
         
         <div class="camera-box">
             <video id="videoCadastrar" autoplay playsinline muted></video>
         </div>
         
-        <button class="btn" onclick="iniciarCam('videoCadastrar')">Abrir Câmera</button>
-        <button class="btn" style="background-color: #16a34a;" onclick="alert('Rosto capturado com sucesso!')">Capturar e Salvar Rosto</button>
+        <button class="btn btn-green" onclick="cadastrarRosto()">Capturar e Salvar Rosto</button>
     </div>
 
-    <!-- Aba 3: Escaneamento -->
+    <!-- Aba 2: Escaneamento Automatizado -->
     <div id="escanear" class="tab-content">
         <h2>Escaneamento Facial</h2>
-        <p style="color: #94a3b8;">Aproxime-se da câmera para identificação automatizada.</p>
+        <p style="color: #94a3b8;">Olhe para a câmera. O motor será ativado assim que o rosto for reconhecido.</p>
         
         <div class="camera-box">
             <video id="videoEscanear" autoplay playsinline muted></video>
         </div>
-        
-        <button class="btn" onclick="iniciarCam('videoEscanear')">Ativar Escanear</button>
+
+        <div id="statusEscanear" class="status-msg">Carregando IA de Reconhecimento...</div>
     </div>
 
-    <!-- Aba 4: Gerenciar Acessos -->
+    <!-- Aba 3: Gerenciar Acessos -->
     <div id="acessos" class="tab-content">
         <h2>Gerenciar Acessos</h2>
-        <p style="color: #94a3b8;">Lista de rostos cadastrados e permissões do sistema.</p>
+        <p style="color: #94a3b8;">Usuário Cadastrado Atual:</p>
+        <div id="usuarioCadastrado" style="margin-top: 10px; font-weight: bold; color: #22c55e;">Nenhum rosto cadastrado ainda.</div>
     </div>
 
-    <!-- Aba 5: Inserir IP do ESP32 Manualmente -->
+    <!-- Aba 4: Inserir IP do ESP32 Manualmente -->
     <div id="config" class="tab-content">
         <h2>Configuração de IP</h2>
         <label>Endereço IP do ESP32:</label>
@@ -111,6 +117,39 @@
 
 <script>
     let streamAtual = null;
+    let modelosCarregados = false;
+    let descriptorCadastrado = null;
+    let comparandoEmAndamento = false;
+    let intervalEscaneamento = null;
+
+    // Carrega os modelos de IA da Face-API.js
+    async function carregarModelosIA() {
+        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+        await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+        modelosCarregados = true;
+        document.getElementById('statusEscanear').innerText = "IA Pronta! Aproxime seu rosto.";
+    }
+
+    // Inicialização ao carregar a página
+    window.onload = function() {
+        carregarModelosIA();
+        
+        let ipSalvo = localStorage.getItem('esp32_ip');
+        if(ipSalvo) document.getElementById('ipInput').value = ipSalvo;
+
+        // Recupera o rosto cadastrado anteriormente se existir
+        let savedDescriptor = localStorage.getItem('rosto_cadastrado');
+        let savedName = localStorage.getItem('nome_cadastrado');
+        if (savedDescriptor) {
+            descriptorCadastrado = new Float32Array(JSON.parse(savedDescriptor));
+            document.getElementById('usuarioCadastrado').innerText = "Usuário Ativo: " + (savedName || "Autorizado");
+        }
+
+        // Inicia a câmera na primeira aba
+        iniciarCam('videoCadastrar');
+    }
 
     function openTab(evt, tabId) {
         let contents = document.querySelectorAll('.tab-content');
@@ -122,23 +161,30 @@
         document.getElementById(tabId).classList.add('active');
         evt.currentTarget.classList.add('active');
 
-        // Para a câmera ao mudar de aba para economizar recursos
         pararCam();
+        if (intervalEscaneamento) clearInterval(intervalEscaneamento);
+
+        if (tabId === 'cadastrar') {
+            iniciarCam('videoCadastrar');
+        } else if (tabId === 'escanear') {
+            iniciarCam('videoEscanear', true);
+        }
     }
 
-    // Função para abrir a câmera do celular/computador
-    async function iniciarCam(elementId) {
-        pararCam();
+    async function iniciarCam(elementId, iniciarVerificacao = false) {
         try {
             streamAtual = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
             let videoElement = document.getElementById(elementId);
             videoElement.srcObject = streamAtual;
+
+            if (iniciarVerificacao) {
+                intervalEscaneamento = setInterval(processarEscaneamento, 1000);
+            }
         } catch (err) {
-            alert("Erro ao acessar a câmera: " + err.message + "\nCertifique-se de que deu permissão de câmera no navegador.");
+            alert("Erro ao acessar a câmera: " + err.message);
         }
     }
 
-    // Função para desligar a câmera ao trocar de aba
     function pararCam() {
         if (streamAtual) {
             streamAtual.getTracks().forEach(track => track.stop());
@@ -146,14 +192,85 @@
         }
     }
 
-    // Função para acionar o motor pelo IP configurado ou direto na rede
+    // Cadastra e extrai as características faciais do rosto
+    async function cadastrarRosto() {
+        if (!modelosCarregados) return alert("Aguarde o carregamento dos modelos de IA...");
+        
+        let nome = document.getElementById('nomeUsuario').value.trim();
+        if (!nome) return alert("Por favor, digite o nome do usuário.");
+
+        let video = document.getElementById('videoCadastrar');
+        let deteccao = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+
+        if (deteccao) {
+            descriptorCadastrado = deteccao.descriptor;
+            localStorage.setItem('rosto_cadastrado', JSON.stringify(Array.from(descriptorCadastrado)));
+            localStorage.setItem('nome_cadastrado', nome);
+            
+            document.getElementById('usuarioCadastrado').innerText = "Usuário Ativo: " + nome;
+            alert("Rosto de " + nome + " cadastrado com sucesso!");
+        } else {
+            alert("Nenhum rosto detectado! Posicione-se bem em frente à câmera e tente novamente.");
+        }
+    }
+
+    // Processa o escaneamento em tempo real
+    async function processarEscaneamento() {
+        if (!modelosCarregados || comparandoEmAndamento) return;
+
+        if (!descriptorCadastrado) {
+            document.getElementById('statusEscanear').innerText = "Nenhum rosto cadastrado no sistema!";
+            return;
+        }
+
+        let video = document.getElementById('videoEscanear');
+        comparandoEmAndamento = true;
+
+        let deteccao = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+
+        if (deteccao) {
+            // Calcula a distância euclidiana entre o rosto salvo e o rosto atual
+            let distancia = faceapi.euclideanDistance(descriptorCadastrado, deteccao.descriptor);
+            
+            // Distância < 0.5 indica alta probabilidade de ser a mesma pessoa
+            if (distancia < 0.5) {
+                document.getElementById('statusEscanear').innerText = "ROSTO RECONHECIDO! Acionando motor...";
+                document.getElementById('statusEscanear').style.backgroundColor = "#16a34a";
+                document.getElementById('statusEscanear').style.color = "#ffffff";
+                
+                acionarMotor();
+
+                // Pausa a verificação por 5 segundos para não reenviar o sinal repetidamente
+                clearInterval(intervalEscaneamento);
+                setTimeout(() => {
+                    document.getElementById('statusEscanear').style.backgroundColor = "#334155";
+                    document.getElementById('statusEscanear').style.color = "#38bdf8";
+                    document.getElementById('statusEscanear').innerText = "Aguardando novo escaneamento...";
+                    intervalEscaneamento = setInterval(processarEscaneamento, 1000);
+                }, 5000);
+
+            } else {
+                document.getElementById('statusEscanear').innerText = "Rosto não reconhecido (Acesso Negado)";
+                document.getElementById('statusEscanear').style.backgroundColor = "#dc2626";
+                document.getElementById('statusEscanear').style.color = "#ffffff";
+            }
+        } else {
+            document.getElementById('statusEscanear').innerText = "Procurando rosto na câmera...";
+            document.getElementById('statusEscanear').style.backgroundColor = "#334155";
+            document.getElementById('statusEscanear').style.color = "#38bdf8";
+        }
+
+        comparandoEmAndamento = false;
+    }
+
+    // Envia o comando para o ESP32 acionar o GPIO 4
     function acionarMotor() {
         let ip = localStorage.getItem('esp32_ip');
         let url = ip ? 'http://' + ip + '/acionar' : '/acionar';
         
         fetch(url)
-            .then(() => alert('Motor Acionado por 2 segundos!'))
-            .catch(() => alert('Erro ao se comunicar com o ESP32. Verifique o IP configurado.'));
+            .then(() => console.log('Sinal enviado ao ESP32 com sucesso!'))
+            .catch(() => alert('Erro ao se comunicar com o ESP32. Verifique se o IP está correto.'));
     }
 
     function salvarIP() {
@@ -161,14 +278,6 @@
         if(ip) {
             localStorage.setItem('esp32_ip', ip);
             alert('IP ' + ip + ' salvo com sucesso!');
-        }
-    }
-
-    // Carrega o IP salvo no input se existir
-    window.onload = function() {
-        let ipSalvo = localStorage.getItem('esp32_ip');
-        if(ipSalvo) {
-            document.getElementById('ipInput').value = ipSalvo;
         }
     }
 </script>
