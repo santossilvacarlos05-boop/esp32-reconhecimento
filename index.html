@@ -83,27 +83,14 @@
 <div class="container">
     <!-- Menu das Abas -->
     <div class="tabs">
-        <button class="tab-btn active" onclick="openTab(event, 'cadastrar')">Cadastrar</button>
-        <button class="tab-btn" onclick="openTab(event, 'escanear')">Escaneamento</button>
+        <button class="tab-btn active" onclick="openTab(event, 'escanear')">Escaneamento</button>
+        <button class="tab-btn" onclick="openTab(event, 'cadastrar')">Cadastrar</button>
         <button class="tab-btn" onclick="openTab(event, 'acessos')">Gerenciar</button>
         <button class="tab-btn" onclick="openTab(event, 'config')">Config IP</button>
     </div>
 
-    <!-- Aba 1: Cadastrar Rostos Permitidos -->
-    <div id="cadastrar" class="tab-content active">
-        <h2>Cadastrar Rosto Permitido</h2>
-        <label>Nome do Usuário:</label>
-        <input type="text" id="nomeUsuario" placeholder="Digite o nome completo">
-        
-        <div class="camera-box">
-            <video id="videoCadastrar" autoplay playsinline muted></video>
-        </div>
-        
-        <button class="btn btn-green" onclick="cadastrarRosto()">Capturar e Salvar Rosto</button>
-    </div>
-
-    <!-- Aba 2: Escaneamento Manual por Botão -->
-    <div id="escanear" class="tab-content">
+    <!-- Aba 1 (Padrão): Escaneamento Manual por Botão -->
+    <div id="escanear" class="tab-content active">
         <h2>Escaneamento Facial</h2>
         <p style="color: #94a3b8;">Posicione seu rosto em frente à câmera e clique no botão abaixo para validar o acesso.</p>
         
@@ -114,6 +101,19 @@
         <button class="btn btn-blue" onclick="validarRostoManual()">Escanear e Validar Rosto</button>
 
         <div id="statusEscanear" class="status-msg">Carregando IA de Reconhecimento...</div>
+    </div>
+
+    <!-- Aba 2: Cadastrar Rostos Permitidos -->
+    <div id="cadastrar" class="tab-content">
+        <h2>Cadastrar Rosto Permitido</h2>
+        <label>Nome do Usuário:</label>
+        <input type="text" id="nomeUsuario" placeholder="Digite o nome completo">
+        
+        <div class="camera-box">
+            <video id="videoCadastrar" autoplay playsinline muted></video>
+        </div>
+        
+        <button class="btn btn-green" onclick="cadastrarRosto()">Capturar e Salvar Rosto</button>
     </div>
 
     <!-- Aba 3: Gerenciar Acessos -->
@@ -155,7 +155,9 @@
         if(ipSalvo) document.getElementById('ipInput').value = ipSalvo;
 
         carregarPerfilGerenciar();
-        iniciarCam('videoCadastrar');
+        
+        // Inicia na aba de escaneamento por padrão
+        iniciarCam('videoEscanear');
     }
 
     function openTab(evt, tabId) {
@@ -263,7 +265,6 @@
         }
     }
 
-    // Executa a leitura apenas ao clicar no botão
     async function validarRostoManual() {
         let status = document.getElementById('statusEscanear');
 
