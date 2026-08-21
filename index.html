@@ -2,96 +2,352 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Reconhecimento Facial Otimizado</title>
-  <!-- Carrega a biblioteca face-api.js -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Controle de Acesso Facial</title>
+  <!-- CSS FontAwesome para os Ícones -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Face-API.js via CDN -->
   <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; background: #121212; color: white; }
-    .container { position: relative; display: inline-block; margin-top: 20px; }
-    video, canvas { border-radius: 8px; width: 640px; height: 480px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #121212; color: #ffffff; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+    
+    /* Navegação */
+    nav { background-color: #1e1e1e; width: 100%; display: flex; justify-content: center; border-bottom: 1px solid #333; position: sticky; top: 0; z-index: 100; }
+    nav button { background: none; border: none; color: #aaa; padding: 15px 25px; font-size: 16px; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 8px; }
+    nav button:hover, nav button.active { color: #00ffcc; border-bottom: 3px solid #00ffcc; }
+
+    /* Conteúdo das Abas */
+    .container { width: 90%; max-width: 800px; margin: 20px auto; }
+    .tab-content { display: none; background: #1e1e1e; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    .tab-content.active { display: block; }
+
+    /* Elementos de Vídeo e Canvas */
+    .video-container { position: relative; width: 100%; max-width: 640px; margin: 0 auto; border-radius: 8px; overflow: hidden; background: #000; }
+    video, canvas { width: 100%; height: auto; display: block; }
     canvas { position: absolute; top: 0; left: 0; }
-    #status { font-size: 18px; margin-top: 10px; color: #00ffcc; }
+
+    /* Formulários e Inputs */
+    .form-group { margin-bottom: 15px; text-align: left; }
+    label { display: block; margin-bottom: 5px; color: #bbb; }
+    input[type="text"] { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: #fff; font-size: 16px; }
+    button.btn-action { background: #00ffcc; color: #121212; border: none; padding: 12px 20px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; width: 100%; font-size: 16px; margin-top: 10px; }
+    button.btn-action:hover { background: #00d6a8; }
+
+    /* Tabela de Gerenciamento */
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #333; }
+    th { color: #00ffcc; }
+    .btn-delete { background: none; border: none; color: #ff4d4d; cursor: pointer; font-size: 18px; transition: 0.2s; }
+    .btn-delete:hover { color: #ff0000; transform: scale(1.2); }
+
+    /* Caixas de Status */
+    .status-box { margin-top: 15px; padding: 12px; border-radius: 6px; background: #2a2a2a; text-align: center; font-weight: bold; }
+    .status-success { color: #00ffcc; border: 1px solid #00ffcc; }
+    .status-danger { color: #ff4d4d; border: 1px solid #ff4d4d; }
   </style>
 </head>
 <body>
 
-  <h2>Leitura Facial Rápida (Sem Travamentos)</h2>
-  <div id="status">Carregando modelos leves...</div>
+  <!-- Menu de Navegação -->
+  <nav>
+    <button class="active" onclick="openTab('scan')"><i class="fa-solid fa-camera"></i> Escanear</button>
+    <button onclick="openTab('cadastrar')"><i class="fa-solid fa-user-plus"></i> Cadastrar</button>
+    <button onclick="openTab('gerenciar')"><i class="fa-solid fa-users-gear"></i> Perfis</button>
+    <button onclick="openTab('config')"><i class="fa-solid fa-microchip"></i> Configurar ESP32</button>
+  </nav>
 
   <div class="container">
-    <!-- Câmera em resolução reduzida (640x480) para economizar CPU -->
-    <video id="webcam" autoplay muted width="640" height="480"></video>
-    <canvas id="overlay"></canvas>
+    
+    <!-- ABA 1: ESCANEAR ROSTO -->
+    <div id="scan" class="tab-content active">
+      <h2>Escanear Rosto</h2>
+      <p style="color: #aaa; margin-bottom: 15px;">Aproxime-se da câmera para liberação do acesso.</p>
+      
+      <div class="video-container">
+        <video id="video-scan" autoplay muted playsinline></video>
+        <canvas id="canvas-scan"></canvas>
+      </div>
+      <div id="status-scan" class="status-box">Carregando IA e Câmera...</div>
+    </div>
+
+    <!-- ABA 2: CADASTRAR NOVO ROSTO -->
+    <div id="cadastrar" class="tab-content">
+      <h2>Cadastrar Novo Perfil</h2>
+      <p style="color: #aaa; margin-bottom: 15px;">Digite o nome da pessoa e olhe para a câmera para registrar.</p>
+      
+      <div class="form-group">
+        <label for="nome-usuario">Nome Completo:</label>
+        <input type="text" id="nome-usuario" placeholder="Ex: João Silva">
+      </div>
+      
+      <div class="video-container" style="max-width: 400px;">
+        <video id="video-cadastrar" autoplay muted playsinline></video>
+      </div>
+      
+      <button class="btn-action" onclick="cadastrarRosto()"><i class="fa-solid fa-id-card"></i> Capturar e Salvar Rosto</button>
+      <div id="status-cadastrar" class="status-box" style="display:none;"></div>
+    </div>
+
+    <!-- ABA 3: GERENCIAR PERFIS (EXCLUIR) -->
+    <div id="gerenciar" class="tab-content">
+      <h2>Perfis Cadastrados</h2>
+      <p style="color: #aaa; margin-bottom: 15px;">Lista de pessoas com acesso liberado no sistema.</p>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Data de Cadastro</th>
+            <th style="width: 50px;">Ação</th>
+          </tr>
+        </thead>
+        <tbody id="tabela-perfis">
+          <!-- Linhas inseridas dinamicamente via JS -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ABA 4: CONFIGURAÇÃO DO ESP32 -->
+    <div id="config" class="tab-content">
+      <h2>Configuração de Comunicação ESP32</h2>
+      <p style="color: #aaa; margin-bottom: 15px;">Insira o IP local do seu ESP32 para enviar os comandos de abertura de trava/relé.</p>
+      
+      <div class="form-group">
+        <label for="ip-esp32">Endereço IP do ESP32:</label>
+        <input type="text" id="ip-esp32" placeholder="Ex: 192.168.1.50">
+      </div>
+      
+      <button class="btn-action" onclick="salvarConfigESP()"><i class="fa-solid fa-floppy-disk"></i> Salvar Endereço IP</button>
+      <div id="status-config" class="status-box" style="display:none;"></div>
+    </div>
+
   </div>
 
   <script>
-    const video = document.getElementById('webcam');
-    const statusText = document.getElementById('status');
-    const overlay = document.getElementById('overlay');
+    let streamCamera = null;
+    let perfisCadastrados = JSON.parse(localStorage.getItem('perfis_faciais')) || [];
+    let ipESP32 = localStorage.getItem('ip_esp32') || '';
+    let intervalEscaneamento = null;
+    let buscandoAcesso = false;
 
-    // 1. Inicia a câmera do usuário
-    async function setupCamera() {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480, frameRate: { ideal: 30 } },
-        audio: false
-      });
-      video.srcObject = stream;
-      return new Promise((resolve) => {
-        video.onloadedmetadata = () => resolve(video);
-      });
-    }
+    // Inicialização
+    window.onload = async () => {
+      document.getElementById('ip-esp32').value = ipESP32;
+      await carregarModelosIA();
+      iniciarCamera('video-scan');
+      iniciarMonitoramentoScan();
+      atualizarTabelaPerfis();
+    };
 
-    // 2. Carrega apenas os modelos ultra-leves (Tiny Models)
-    async function loadModels() {
-      // Baixe os arquivos da pasta 'models' do repositório do face-api.js e coloque em '/models'
-      const MODEL_URL = './models'; 
-      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-      await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
-      await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-    }
+    // Navegação entre Abas
+    function openTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active'));
+      
+      document.getElementById(tabId).classList.add('active');
+      event.currentTarget.classList.add('active');
 
-    // 3. Loop de detecção otimizado com Throttle
-    async function startDetection() {
-      const displaySize = { width: video.width, height: video.height };
-      faceapi.matchDimensions(overlay, displaySize);
+      // Parar interval de scan se mudar de aba
+      if (intervalEscaneamento) clearInterval(intervalEscaneamento);
 
-      statusText.innerText = "Analisando rosto...";
-
-      // Configuração para usar o detector leve com resolução interna baixa
-      const detectorOptions = new faceapi.TinyFaceDetectorOptions({
-        inputSize: 224,      // Tamanho reduzido da imagem processada (128, 160, 224 ou 320)
-        scoreThreshold: 0.5  // Confiança mínima da detecção (50%)
-      });
-
-      // Loop executado a cada 200ms em vez de rodar a cada frame (evita congelar a tela)
-      setInterval(async () => {
-        const detections = await faceapi.detectAllFaces(video, detectorOptions)
-                                         .withFaceLandmarks(true);
-
-        const resizedDetections = faceapi.resizeResults(detections, displaySize);
-        
-        // Limpa a tela anterior e desenha as novas marcações
-        const ctx = overlay.getContext('2d');
-        ctx.clearRect(0, 0, overlay.width, overlay.height);
-        faceapi.draw.drawDetections(overlay, resizedDetections);
-        faceapi.draw.drawFaceLandmarks(overlay, resizedDetections);
-
-      }, 200); // 200ms = 5 análises por segundo (desempenho fluido)
-    }
-
-    // Inicialização geral
-    async function init() {
-      try {
-        await loadModels();
-        await setupCamera();
-        startDetection();
-      } catch (err) {
-        statusText.innerText = "Erro ao iniciar: " + err.message;
-        console.error(err);
+      if (tabId === 'scan') {
+        iniciarCamera('video-scan');
+        iniciarMonitoramentoScan();
+      } else if (tabId === 'cadastrar') {
+        iniciarCamera('video-cadastrar');
       }
     }
 
-    init();
+    // Carregar Modelos Ultra-Leves da CDN para não dar erro 404
+    async function carregarModelosIA() {
+      const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
+        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+      ]);
+    }
+
+    // Gerenciador de Câmera
+    async function iniciarCamera(videoId) {
+      if (streamCamera) {
+        streamCamera.getTracks().forEach(track => track.stop());
+      }
+      const video = document.getElementById(videoId);
+      try {
+        streamCamera = await navigator.mediaDevices.getUserMedia({
+          video: { width: 640, height: 480 },
+          audio: false
+        });
+        video.srcObject = streamCamera;
+      } catch (err) {
+        alert("Erro ao acessar a câmera: " + err.message);
+      }
+    }
+
+    // ABA 1: Lógica do Escaneamento
+    function iniciarMonitoramentoScan() {
+      const video = document.getElementById('video-scan');
+      const canvas = document.getElementById('canvas-scan');
+      const statusBox = document.getElementById('status-scan');
+
+      intervalEscaneamento = setInterval(async () => {
+        if (buscandoAcesso || perfisCadastrados.length === 0) {
+          if(perfisCadastrados.length === 0) {
+            statusBox.innerText = "Nenhum perfil cadastrado no sistema.";
+            statusBox.className = "status-box status-danger";
+          }
+          return;
+        }
+
+        const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+        const deteccoes = await faceapi.detectAllFaces(video, options).withFaceLandmarks(true).withFaceDescriptors();
+
+        const displaySize = { width: video.clientWidth, height: video.clientHeight };
+        faceapi.matchDimensions(canvas, displaySize);
+        const resizedDeteccoes = faceapi.resizeResults(deteccoes, displaySize);
+
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        faceapi.draw.drawDetections(canvas, resizedDeteccoes);
+
+        if (deteccoes.length > 0) {
+          const descriptorCapturado = deteccoes[0].descriptor;
+          let autorizado = false;
+          let nomeAutorizado = "";
+
+          // Comparação do rosto capturado com o banco de dados
+          for (let perfil of perfisCadastrados) {
+            const descriptorSalvo = new Float32Array(perfil.descriptor);
+            const distancia = faceapi.euclideanDistance(descriptorCapturado, descriptorSalvo);
+            
+            if (distancia < 0.5) { // Limiar de precisão
+              autorizado = true;
+              nomeAutorizado = perfil.nome;
+              break;
+            }
+          }
+
+          if (autorizado) {
+            buscandoAcesso = true;
+            statusBox.innerText = `Acesso LIBERADO: Bem-vindo(a) ${nomeAutorizado}!`;
+            statusBox.className = "status-box status-success";
+            enviarComandoESP32();
+
+            setTimeout(() => {
+              buscandoAcesso = false;
+              statusBox.innerText = "Aguardando rosto...";
+              statusBox.className = "status-box";
+            }, 5000);
+          } else {
+            statusBox.innerText = "Rosto NÃO reconhecido!";
+            statusBox.className = "status-box status-danger";
+          }
+        } else {
+          statusBox.innerText = "Aproxima-se da câmera...";
+          statusBox.className = "status-box";
+        }
+      }, 250); // Leitura a cada 250ms para máxima fluidez sem travar
+    }
+
+    // ABA 2: Cadastrar Rosto
+    async function cadastrarRosto() {
+      const nomeInput = document.getElementById('nome-usuario').value;
+      const statusBox = document.getElementById('status-cadastrar');
+      const video = document.getElementById('video-cadastrar');
+
+      if (!nomeInput.trim()) {
+        alert("Por favor, digite o nome do usuário.");
+        return;
+      }
+
+      statusBox.style.display = "block";
+      statusBox.innerText = "Analisando e salvando características...";
+      statusBox.className = "status-box";
+
+      const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+      const detec = await faceapi.detectSingleFace(video, options).withFaceLandmarks(true).withFaceDescriptor();
+
+      if (detec) {
+        const novoPerfil = {
+          id: Date.now(),
+          nome: nomeInput,
+          data: new Date().toLocaleDateString('pt-BR'),
+          descriptor: Array.from(detec.descriptor)
+        };
+
+        perfisCadastrados.push(novoPerfil);
+        localStorage.setItem('perfis_faciais', JSON.stringify(perfisCadastrados));
+
+        statusBox.innerText = `Perfil de ${nomeInput} cadastrado com sucesso!`;
+        statusBox.className = "status-box status-success";
+        document.getElementById('nome-usuario').value = "";
+        atualizarTabelaPerfis();
+      } else {
+        statusBox.innerText = "Nenhum rosto detectado na câmera! Tente se aproximar mais.";
+        statusBox.className = "status-box status-danger";
+      }
+    }
+
+    // ABA 3: Gerenciar Perfis (Listar e Deletar)
+    function atualizarTabelaPerfis() {
+      const tbody = document.getElementById('tabela-perfis');
+      tbody.innerHTML = "";
+
+      if (perfisCadastrados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#888;">Nenhum perfil cadastrado.</td></tr>`;
+        return;
+      }
+
+      perfisCadastrados.forEach(perfil => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${perfil.nome}</td>
+          <td>${perfil.data}</td>
+          <td>
+            <button class="btn-delete" onclick="excluirPerfil(${perfil.id})" title="Excluir Perfil">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function excluirPerfil(id) {
+      if (confirm("Tem certeza que deseja apagar a autorização deste perfil?")) {
+        perfisCadastrados = perfisCadastrados.filter(p => p.id !== id);
+        localStorage.setItem('perfis_faciais', JSON.stringify(perfisCadastrados));
+        atualizarTabelaPerfis();
+      }
+    }
+
+    // ABA 4: Configuração e envio ao ESP32
+    function salvarConfigESP() {
+      const ip = document.getElementById('ip-esp32').value.trim();
+      const statusBox = document.getElementById('status-config');
+
+      ipESP32 = ip;
+      localStorage.setItem('ip_esp32', ip);
+
+      statusBox.style.display = "block";
+      statusBox.innerText = "Endereço IP do ESP32 gravado com sucesso!";
+      statusBox.className = "status-box status-success";
+    }
+
+    function enviarComandoESP32() {
+      if (!ipESP32) {
+        console.warn("Endereço IP do ESP32 não configurado.");
+        return;
+      }
+
+      // Envia uma requisição HTTP GET para a rota de acionamento do ESP32
+      fetch(`http://${ipESP32}/abrir`, { mode: 'no-cors' })
+        .then(() => console.log("Comando enviado ao ESP32!"))
+        .catch(err => console.error("Falha na comunicação com ESP32:", err));
+    }
   </script>
 </body>
 </html>
