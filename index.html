@@ -3,92 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Controle - ESP32</title>
+    <title>Sistema de Controle & Acesso ESP32</title>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: #0f172a; color: #f8fafc; padding: 20px; display: flex; justify-content: center; }
+        .container { max-width: 600px; width: 100%; background-color: #1e293b; border-radius: 16px; border: 1px solid #334155; overflow: hidden; }
+        
+        /* Navegação por Abas */
+        .tabs { display: flex; background-color: #0f172a; border-bottom: 1px solid #334155; flex-wrap: wrap; }
+        .tab-btn { flex: 1; min-width: 120px; padding: 12px; background: none; border: none; color: #94a3b8; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .tab-btn.active { color: #38bdf8; border-bottom: 3px solid #38bdf8; background-color: #1e293b; }
+        
+        /* Conteúdo das Abas */
+        .tab-content { display: none; padding: 25px; }
+        .tab-content.active { display: block; }
 
-        body {
-            background-color: #0f172a;
-            color: #f8fafc;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
+        h2 { font-size: 20px; color: #38bdf8; margin-bottom: 15px; }
+        label { display: block; margin-top: 10px; font-size: 14px; color: #94a3b8; }
+        input { width: 100%; padding: 10px; margin-top: 5px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 8px; }
 
-        .card {
-            background-color: #1e293b;
-            padding: 30px;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-            text-align: center;
-            max-width: 400px;
-            width: 100%;
-            border: 1px solid #334155;
-        }
-
-        h1 {
-            font-size: 24px;
-            margin-bottom: 10px;
-            color: #38bdf8;
-        }
-
-        p {
-            font-size: 14px;
-            color: #94a3b8;
-            margin-bottom: 25px;
-        }
-
-        .btn-motor {
-            background: linear-gradient(135deg, #22c55e, #16a34a);
-            color: white;
-            border: none;
-            padding: 16px 32px;
-            font-size: 18px;
-            font-weight: bold;
-            border-radius: 12px;
-            cursor: pointer;
-            width: 100%;
-            transition: all 0.2s ease;
-            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
-        }
-
-        .btn-motor:hover {
-            background: linear-gradient(135deg, #16a34a, #15803d);
-            transform: translateY(-2px);
-        }
-
-        .btn-motor:active {
-            transform: translateY(1px);
-            box-shadow: none;
-        }
-
-        .status {
-            margin-top: 20px;
-            font-size: 13px;
-            color: #64748b;
-        }
+        /* Botões */
+        .btn { background-color: #0284c7; color: white; border: none; padding: 12px 20px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 15px; width: 100%; }
+        .btn-motor { background: linear-gradient(135deg, #22c55e, #16a34a); box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3); }
+        .btn-motor:hover { background: linear-gradient(135deg, #16a34a, #15803d); }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h1>Controle do Motor</h1>
-        <p>Acionamento via ESP32 (GPIO 4)</p>
-        
-        <!-- Botão chamando a rota de 2 segundos -->
-        <a href="/acionar" style="text-decoration: none;">
-            <button class="btn-motor">LIGAR MOTOR (2s)</button>
-        </a>
-
-        <div class="status">Pino ativo: D4 (GPIO 4)</div>
+<div class="container">
+    <!-- Menu das Abas -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="openTab('motor')">Motor</button>
+        <button class="tab-btn" onclick="openTab('cadastrar')">Cadastrar</button>
+        <button class="tab-btn" onclick="openTab('escanear')">Escaneamento</button>
+        <button class="tab-btn" onclick="openTab('acessos')">Gerenciar</button>
+        <button class="tab-btn" onclick="openTab('config')">Config IP</button>
     </div>
+
+    <!-- Aba 1: Motor / Acionamento -->
+    <div id="motor" class="tab-content active">
+        <h2>Controle Manual do Motor</h2>
+        <p style="color: #94a3b8; margin-bottom: 15px;">Acionamento do relé (GPIO 4) por 2 segundos:</p>
+        <a href="/acionar" style="text-decoration: none;">
+            <button class="btn btn-motor">LIGAR MOTOR (2s)</button>
+        </a>
+    </div>
+
+    <!-- Aba 2: Cadastrar Rostos Permitidos -->
+    <div id="cadastrar" class="tab-content">
+        <h2>Cadastrar Rostos Permitidos</h2>
+        <label>Nome do Usuário:</label>
+        <input type="text" placeholder="Digite o nome completo">
+        <button class="btn">Capturar e Salvar Rosto</button>
+    </div>
+
+    <!-- Aba 3: Escaneamento -->
+    <div id="escanear" class="tab-content">
+        <h2>Escaneamento Facial</h2>
+        <p style="color: #94a3b8;">Aproxime-se da câmera para identificação automatizada.</p>
+        <div style="width: 100%; height: 200px; background: #0f172a; margin-top: 15px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #64748b;">
+            [ Câmera / Stream de Vídeo ]
+        </div>
+    </div>
+
+    <!-- Aba 4: Gerenciar Acessos -->
+    <div id="acessos" class="tab-content">
+        <h2>Gerenciar Acessos</h2>
+        <p style="color: #94a3b8;">Lista de rostos cadastrados e permissões do sistema.</p>
+    </div>
+
+    <!-- Aba 5: Inserir IP do ESP32 Manualmente -->
+    <div id="config" class="tab-content">
+        <h2>Configuração de IP</h2>
+        <label>Endereço IP do ESP32:</label>
+        <input type="text" id="ipInput" placeholder="Ex: 192.168.1.15">
+        <button class="btn" onclick="salvarIP()">Salvar IP</button>
+    </div>
+</div>
+
+<script>
+    function openTab(tabId) {
+        let contents = document.querySelectorAll('.tab-content');
+        let buttons = document.querySelectorAll('.tab-btn');
+        
+        contents.forEach(content => content.classList.remove('active'));
+        buttons.forEach(btn => btn.classList.remove('active'));
+        
+        document.getElementById(tabId).classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
+
+    function salvarIP() {
+        let ip = document.getElementById('ipInput').value;
+        if(ip) {
+            localStorage.setItem('esp32_ip', ip);
+            alert('IP ' + ip + ' salvo com sucesso!');
+        }
+    }
+</script>
 
 </body>
 </html>
